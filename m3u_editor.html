@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mesa de Señal · Editor M3U/M3U8</title>
+<style>
+  :root{
+    --bg: #12140f;
+    --panel: #1b1e17;
+    --panel-raised: #21251c;
+    --border: #33362b;
+    --border-soft: #292c22;
+    --text: #e8e6dc;
+    --text-muted: #93917f;
+    --text-dim: #5f5d4f;
+    --brass: #c9a15a;
+    --brass-dim: #7d6739;
+    --live: #7ec98f;
+    --live-dim: #3c5943;
+    --dead: #d97060;
+    --dead-dim: #5a372f;
+    --unknown: #d9b35c;
+    --unknown-dim: #5a4f2f;
+    --tmdb: #6fb7d9;
+    --tmdb-dim: #3c5a68;
+    --font-display: 'Space Grotesk', 'Segoe UI', sans-serif;
+    --font-body: 'Inter', 'Segoe UI', sans-serif;
+    --font-mono: 'JetBrains Mono', 'Consolas', monospace;
+  }
+
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  *{ box-sizing: border-box; }
+
+  html, body{
+    margin:0; padding:0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body{
+    background-image:
+      radial-gradient(ellipse at top left, rgba(201,161,90,0.05), transparent 55%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px);
+  }
+
+  .wrap{ max-width: 1240px; margin: 0 auto; padding: 28px 20px 80px; }
+
+  /* ---------- Header ---------- */
+  header{
+    display:flex; justify-content:space-between; align-items:flex-end;
+    gap: 20px; flex-wrap: wrap;
+    padding-bottom: 18px;
+    border-bottom: 1px dashed var(--border);
+    margin-bottom: 18px;
+  }
+  .brand{ display:flex; align-items:center; gap:14px; }
+  .brand-mark{
+    width:40px; height:40px; border-radius:8px;
+    border:1px solid var(--brass-dim);
+    background: linear-gradient(160deg, var(--panel-raised), var(--panel));
+    display:flex; align-items:center; justify-content:center;
+    position:relative; flex-shrink:0;
+  }
+  .brand-mark .dot{
+    width:8px; height:8px; border-radius:50%;
+    background: var(--live);
+    box-shadow: 0 0 6px var(--live);
+    animation: pulse 2.2s ease-in-out infinite;
+  }
+  @keyframes pulse{
+    0%,100%{ opacity:1; transform:scale(1);}
+    50%{ opacity:.45; transform:scale(.8);}
+  }
+  .brand h1{
+    font-family: var(--font-display);
+    font-size: 21px; font-weight:700; margin:0; letter-spacing:.2px;
+  }
+  .brand p{ margin:2px 0 0; font-size:12.5px; color:var(--text-muted); font-family: var(--font-mono); }
+
+  .file-actions{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+
+  button, .btn{
+    font-family: var(--font-body);
+    font-size: 13px; font-weight:600;
+    padding: 9px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--panel-raised);
+    color: var(--text);
+    cursor: pointer;
+    transition: border-color .15s ease, transform .1s ease, background .15s ease;
+    display:inline-flex; align-items:center; gap:7px;
+  }
+  button:hover{ border-color: var(--brass-dim); background:#252a1e; }
+  button:active{ transform: translateY(1px); }
+  button:disabled{ opacity:.4; cursor:not-allowed; }
+  button.primary{
+    background: linear-gradient(160deg, #d9b56a, var(--brass));
+    color: #1a1608; border-color: var(--brass);
+  }
+  button.primary:hover{ filter: brightness(1.08); }
+  button.danger{ border-color: var(--dead-dim); }
+  button.danger:hover{ border-color: var(--dead); background:#2a1a16; }
+  button.ghost{ background: transparent; }
+  button.small{ padding:5px 9px; font-size:11.5px; }
+  button.tmdb-btn{ border-color: var(--tmdb-dim); }
+  button.tmdb-btn:hover{ border-color: var(--tmdb); background:#182228; }
+
+  input[type="file"]{ display:none; }
+
+  /* ---------- Drop zone (empty state) ---------- */
+  .dropzone{
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    padding: 46px 20px;
+    text-align:center;
+    background: var(--panel);
+    color: var(--text-muted);
+    margin-bottom: 22px;
+    transition: border-color .15s ease, background .15s ease;
+  }
+  .dropzone.drag{ border-color: var(--brass); background:#20220f; color: var(--text); }
+  .dropzone strong{ color: var(--text); font-family: var(--font-display); font-size:16px; display:block; margin-bottom:6px;}
+  .dropzone .sub{ font-size:12.5px; margin-top:8px; font-family: var(--font-mono); color: var(--text-dim); }
+
+  /* ---------- TMDB settings panel ---------- */
+  .tmdb-panel{
+    display:none;
+    background: var(--panel);
+    border: 1px solid var(--tmdb-dim);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 18px;
+    gap: 10px;
+  }
+  .tmdb-panel.open{ display:flex; flex-direction:column; }
+  .tmdb-panel label{
+    font-family: var(--font-mono); font-size:11px; text-transform:uppercase;
+    letter-spacing:1px; color: var(--tmdb);
+  }
+  .tmdb-panel input{
+    background: var(--bg); border:1px solid var(--border); border-radius:6px;
+    padding: 9px 10px; color: var(--text); font-family: var(--font-mono); font-size:12.5px;
+    width:100%; max-width: 460px;
+  }
+  .tmdb-panel input:focus{ outline:none; border-color: var(--tmdb); }
+  .tmdb-panel .hint{ font-size:12px; color: var(--text-dim); line-height:1.6; max-width:640px; }
+
+  /* ---------- Banner ---------- */
+  .banner{
+    display:none; align-items:center; justify-content:space-between; gap:10px;
+    padding: 10px 14px; border-radius: 7px; margin-bottom: 16px;
+    font-size: 12.5px; border: 1px solid var(--unknown-dim); background: #26210f; color: var(--unknown);
+  }
+  .banner.show{ display:flex; }
+  .banner.error{ border-color: var(--dead-dim); background:#271712; color: var(--dead); }
+  .banner button{ padding:3px 8px; font-size:11px; border-color: currentColor; color:inherit; background:transparent; }
+
+  /* ---------- Stat readouts ---------- */
+  .stats{
+    display:grid; grid-template-columns: repeat(4, 1fr);
+    gap: 10px; margin-bottom: 20px;
+  }
+  .stat{
+    background: var(--panel);
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+    padding: 12px 14px;
+    position:relative;
+    overflow:hidden;
+  }
+  .stat::before{
+    content:''; position:absolute; left:0; top:0; bottom:0; width:3px;
+    background: var(--stat-color, var(--brass-dim));
+  }
+  .stat .n{ font-family: var(--font-mono); font-size: 22px; font-weight:600; line-height:1; }
+  .stat .l{ font-size: 10.5px; text-transform:uppercase; letter-spacing:1px; color: var(--text-muted); margin-top:5px; }
+  .stat.total{ --stat-color: var(--brass); }
+  .stat.live{ --stat-color: var(--live); }
+  .stat.dead{ --stat-color: var(--dead); }
+  .stat.unknown{ --stat-color: var(--unknown); }
+
+  /* ---------- Toolbar ---------- */
+  .toolbar{
+    display:flex; justify-content:space-between; align-items:center;
+    gap:12px; flex-wrap:wrap; margin-bottom: 12px;
+  }
+  .toolbar .left, .toolbar .right{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .search{
+    background: var(--panel); border:1px solid var(--border); border-radius:6px;
+    padding: 8px 12px; color: var(--text); font-family: var(--font-mono); font-size:12.5px;
+    min-width: 200px;
+  }
+  .search::placeholder{ color: var(--text-dim); }
+
+  /* ---------- Table ---------- */
+  .table-wrap{
+    background: var(--panel);
+    border: 1px solid var(--border-soft);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  table{ width:100%; border-collapse: collapse; }
+  thead th{
+    text-align:left; font-family: var(--font-mono); font-size:10.5px;
+    text-transform:uppercase; letter-spacing:1px; color: var(--text-dim);
+    padding: 10px 12px; border-bottom: 1px solid var(--border-soft);
+    background: var(--panel-raised);
+  }
+  tbody tr{ border-bottom: 1px solid var(--border-soft); }
+  tbody tr:last-child{ border-bottom:none; }
+  tbody tr:hover{ background: rgba(255,255,255,0.015); }
+  td{ padding: 8px 12px; vertical-align: middle; }
+  td.idx{ font-family: var(--font-mono); color: var(--text-dim); font-size:12px; width: 34px; }
+
+  .cell-input{
+    width:100%; background: transparent; border: 1px solid transparent;
+    color: var(--text); font-family: var(--font-body); font-size:13px;
+    padding: 6px 7px; border-radius:5px;
+  }
+  .cell-input:hover{ border-color: var(--border-soft); }
+  .cell-input:focus{ outline:none; border-color: var(--brass-dim); background: rgba(201,161,90,0.05); }
+  .cell-input.url{ font-family: var(--font-mono); font-size:12px; color: var(--text-muted); }
+  .cell-input.url:focus{ color: var(--text); }
+
+  td.status-cell{ width: 160px; }
+  .signal{ display:flex; align-items:center; gap:8px; }
+  .signal .dot{
+    width:9px; height:9px; border-radius:50%; flex-shrink:0;
+    background: var(--text-dim); border:1px solid var(--border);
+  }
+  .signal.live .dot{ background: var(--live); box-shadow:0 0 6px var(--live); animation: pulse 2s ease-in-out infinite; }
+  .signal.dead .dot{ background: var(--dead); }
+  .signal.unknown .dot{ background: var(--unknown); }
+  .signal.checking .dot{ background: var(--brass); animation: scan .9s linear infinite; }
+  @keyframes scan{ 0%{opacity:.25;} 50%{opacity:1;} 100%{opacity:.25;} }
+  .signal .label{ font-family: var(--font-mono); font-size:11px; color: var(--text-muted); }
+  .signal.live .label{ color: var(--live); }
+  .signal.dead .label{ color: var(--dead); }
+  .signal.unknown .label{ color: var(--unknown); }
+  .signal-detail{ font-size:10px; color: var(--text-dim); margin-top:2px; font-family: var(--font-mono); }
+
+  td.poster-cell{ width: 150px; }
+  .poster-box{
+    display:flex; align-items:center; gap:8px;
+    border-radius: 6px; padding: 3px; border: 1px solid transparent;
+    transition: border-color .2s ease;
+  }
+  .poster-box.loading{ border-color: var(--tmdb-dim); animation: scan 1s linear infinite; }
+  .poster-thumb{
+    width: 34px; height: 48px; object-fit: cover; border-radius: 4px;
+    border: 1px solid var(--border-soft); background: var(--panel-raised); flex-shrink:0;
+  }
+  .logo-input{ font-family: var(--font-mono); font-size:11px; color: var(--text-muted); }
+  .logo-input:focus{ color: var(--text); }
+
+  td.actions{ width: 118px; text-align:right; white-space:nowrap; }
+
+  .empty-row td{ padding: 40px 12px; text-align:center; color: var(--text-dim); font-family: var(--font-mono); font-size:12.5px; }
+
+  /* ---------- Add-entry bar ---------- */
+  .add-bar{
+    display:grid; grid-template-columns: 1.1fr .9fr 1fr 1.3fr auto;
+    gap: 8px; padding: 12px; border-top: 1px dashed var(--border-soft);
+    background: var(--panel-raised);
+  }
+  .add-bar input{
+    background: var(--bg); border:1px solid var(--border); border-radius:6px;
+    padding: 9px 10px; color: var(--text); font-size:12.5px; font-family: var(--font-body);
+  }
+  .add-bar input:focus{ outline:none; border-color: var(--brass-dim); }
+  .add-bar input.url{ font-family: var(--font-mono); font-size:12px; }
+
+  /* ---------- Footer note ---------- */
+  .note{
+    margin-top: 22px; padding: 14px 16px;
+    border: 1px solid var(--border-soft); border-radius: 8px;
+    background: var(--panel); color: var(--text-muted); font-size:12.5px; line-height:1.6;
+  }
+  .note strong{ color: var(--unknown); }
+  .note code{ font-family: var(--font-mono); background: var(--panel-raised); padding:1px 5px; border-radius:4px; font-size:11.5px; }
+  .note + .note{ margin-top:10px; }
+  .note.tmdb-note strong{ color: var(--tmdb); }
+
+  @media (max-width: 720px){
+    .stats{ grid-template-columns: repeat(2,1fr); }
+    .add-bar{ grid-template-columns: 1fr; }
+    thead{ display:none; }
+    table, tbody, tr, td{ display:block; width:100%; }
+    tbody tr{ padding: 10px 4px; }
+    td.idx{ display:none; }
+    td{ padding: 4px 8px; }
+    td.actions{ text-align:left; }
+    .poster-box{ flex-direction:row; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <div class="brand-mark"><div class="dot"></div></div>
+      <div>
+        <h1>Mesa de Señal</h1>
+        <p>editor &amp; validador de playlists m3u / m3u8</p>
+      </div>
+    </div>
+    <div class="file-actions">
+      <input type="file" id="fileInput" accept=".m3u,.m3u8,text/plain">
+      <button class="ghost" id="btnOpen">Abrir archivo</button>
+      <button class="ghost" id="btnNew">Nueva lista</button>
+      <button class="ghost tmdb-btn" id="btnToggleTmdb">⚙ TMDB</button>
+      <button class="primary" id="btnDownload" disabled>Descargar .m3u</button>
+    </div>
+  </header>
+
+  <div class="tmdb-panel" id="tmdbPanel">
+    <label for="tmdbApiKey">Clave de API de TMDB (v3)</label>
+    <input type="text" id="tmdbApiKey" value="6f6ac958e9e94c4c42371ebba58f4e00" spellcheck="false">
+    <div class="hint">
+      Esta clave se usa solo en tu navegador para consultar <strong style="color:var(--tmdb);">themoviedb.org</strong> y no se guarda en ningún servidor ni persiste al recargar la página. Tené en cuenta que si compartís este archivo HTML con otra persona, ella verá esta misma clave en el código — si te importa, borrala y pegá la tuya antes de compartirlo, o generá una nueva en tu cuenta de TMDB.
+    </div>
+  </div>
+
+  <div id="dropzone" class="dropzone">
+    <strong>Arrastrá tu archivo .m3u o .m3u8 acá</strong>
+    <span>o hacé clic en "Abrir archivo" · también podés empezar una lista vacía con "Nueva lista"</span>
+    <div class="sub">nada se sube a ningún servidor propio — todo se procesa en tu navegador</div>
+  </div>
+
+  <div class="stats" id="stats" style="display:none;">
+    <div class="stat total"><div class="n" id="statTotal">0</div><div class="l">Canales</div></div>
+    <div class="stat live"><div class="n" id="statLive">0</div><div class="l">Vivos</div></div>
+    <div class="stat dead"><div class="n" id="statDead">0</div><div class="l">Muertos</div></div>
+    <div class="stat unknown"><div class="n" id="statUnknown">0</div><div class="l">Sin verificar</div></div>
+  </div>
+
+  <div id="editorArea" style="display:none;">
+    <div class="banner" id="tmdbBanner">
+      <span id="tmdbBannerText"></span>
+      <button id="btnCloseBanner">cerrar</button>
+    </div>
+
+    <div class="toolbar">
+      <div class="left">
+        <button class="primary" id="btnValidateAll">Validar todos los enlaces</button>
+        <button class="ghost" id="btnStopValidate" style="display:none;">Detener</button>
+        <button class="ghost danger" id="btnRemoveDead">Quitar muertos</button>
+      </div>
+      <div class="right">
+        <input class="search" id="search" placeholder="Buscar por título, grupo o URL…">
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <div class="left">
+        <button class="tmdb-btn" id="btnTmdbPosters">🎬 Buscar posters en TMDB</button>
+        <button class="tmdb-btn" id="btnTmdbGroups">🗂 Agrupar por género (TMDB)</button>
+        <button class="ghost" id="btnStopTmdb" style="display:none;">Detener</button>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="idx">#</th>
+            <th style="width:150px;">Estado</th>
+            <th style="width:150px;">Poster</th>
+            <th>Título</th>
+            <th style="width:140px;">Grupo</th>
+            <th>URL</th>
+            <th style="width:118px;"></th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <tr class="empty-row"><td colspan="7">Todavía no hay entradas. Cargá un archivo o agregá una abajo.</td></tr>
+        </tbody>
+      </table>
+
+      <div class="add-bar">
+        <input type="text" id="newTitle" placeholder="Título del canal">
+        <input type="text" id="newGroup" placeholder="Grupo (opcional)">
+        <input type="text" id="newLogo" placeholder="URL del poster (opcional)">
+        <input type="text" class="url" id="newUrl" placeholder="https://ejemplo.com/stream.m3u8">
+        <button class="primary" id="btnAdd">+ Agregar</button>
+      </div>
+    </div>
+
+    <div class="note">
+      <strong>Sobre la validación de enlaces:</strong> por seguridad, los navegadores no dejan que una página web lea el código de respuesta real de otro servidor (política CORS), así que esta herramienta interpreta <em>“vivo”</em> como “el navegador logró establecer conexión” y <em>“muerto”</em> como “la conexión falló directamente” (DNS, servidor caído, timeout). Streams <code>http://</code> cargados desde esta página <code>https://</code> pueden marcarse como muertos por bloqueo de contenido mixto aunque estén funcionando. Para una validación más exacta con códigos HTTP reales, usá el script de escritorio (<code>m3u_manager.py</code>).
+    </div>
+    <div class="note tmdb-note">
+      <strong>Sobre los botones de TMDB:</strong> buscan cada título en The Movie Database y completan el <code>tvg-logo</code> con el póster oficial y/o el <code>group-title</code> con el género principal (película o serie). Funciona mejor con títulos "limpios" (sin etiquetas de calidad tipo HD/4K) — podés editar el título en la tabla antes de buscar si el resultado no es el esperado. Canales de TV en vivo, radios o eventos deportivos normalmente no tienen ficha en TMDB, así que quedarán sin resultado.
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  const TMDB_BASE = "https://api.themoviedb.org/3";
+  const POSTER_PLACEHOLDER = "data:image/svg+xml;utf8," + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="112" viewBox="0 0 80 112">' +
+    '<rect width="80" height="112" rx="6" fill="#21251c"/>' +
+    '<path d="M24 40h32M24 52h32M24 64h20" stroke="#5f5d4f" stroke-width="3" stroke-linecap="round"/>' +
+    '</svg>'
+  );
+
+  let entries = [];      // {id, duration, title, group, logo, url, attrs:{}, status, detail, _tmdb, tmdbBusy}
+  let nextId = 1;
+  let sourceExt = ".m3u";
+  let validating = false;
+  let stopRequested = false;
+  let tmdbBusyGlobal = false;
+  let tmdbAbort = false;
+  let genreMapMovie = null;
+  let genreMapTv = null;
+  let genresLoadingPromise = null;
+
+  const $ = (sel) => document.querySelector(sel);
+  const fileInput = $("#fileInput");
+  const dropzone = $("#dropzone");
+  const editorArea = $("#editorArea");
+  const statsBox = $("#stats");
+  const tbody = $("#tbody");
+  const searchInput = $("#search");
+  const tmdbPanel = $("#tmdbPanel");
+  const tmdbBanner = $("#tmdbBanner");
+  const tmdbBannerText = $("#tmdbBannerText");
+
+  // ---------------- Parsing ----------------
+  function parseM3U(text){
+    const lines = text.split(/\r?\n/);
+    const result = [];
+    let pending = null;
+
+    for(let raw of lines){
+      const line = raw.trim();
+      if(!line) continue;
+      if(line === "#EXTM3U") continue;
+
+      if(line.startsWith("#EXTINF")){
+        const m = line.match(/^#EXTINF:(-?\d+)\s*(.*?),(.*)$/);
+        pending = { duration: "-1", title: "", attrs: {} };
+        if(m){
+          pending.duration = m[1];
+          const attrStr = m[2];
+          pending.title = m[3].trim();
+          const attrRe = /(\S+?)="(.*?)"/g;
+          let am;
+          while((am = attrRe.exec(attrStr)) !== null){
+            pending.attrs[am[1]] = am[2];
+          }
+        } else {
+          pending.title = line.replace("#EXTINF:", "").trim();
+        }
+      } else if(line.startsWith("#")){
+        continue; // otros tags no se preservan al editar
+      } else {
+        const e = pending || { duration:"-1", title: line.split("/").pop(), attrs:{} };
+        result.push({
+          id: nextId++,
+          duration: e.duration,
+          title: e.title || line,
+          group: e.attrs["group-title"] || "",
+          logo: e.attrs["tvg-logo"] || "",
+          url: line,
+          attrs: e.attrs,
+          status: "unknown",
+          detail: "",
+          tmdbBusy: false
+        });
+        pending = null;
+      }
+    }
+    return result;
+  }
+
+  function buildM3U(list){
+    let out = "#EXTM3U\n";
+    for(const e of list){
+      const attrs = { ...e.attrs };
+      if(e.group) attrs["group-title"] = e.group; else delete attrs["group-title"];
+      if(e.logo) attrs["tvg-logo"] = e.logo; else delete attrs["tvg-logo"];
+      const attrStr = Object.entries(attrs).map(([k,v]) => `${k}="${v}"`).join(" ");
+      out += attrStr
+        ? `#EXTINF:${e.duration} ${attrStr},${e.title}\n`
+        : `#EXTINF:${e.duration},${e.title}\n`;
+      out += `${e.url}\n`;
+    }
+    return out;
+  }
+
+  // ---------------- Rendering ----------------
+  function render(){
+    const filter = searchInput.value.trim().toLowerCase();
+    const filtered = entries.filter(e =>
+      !filter ||
+      e.title.toLowerCase().includes(filter) ||
+      e.group.toLowerCase().includes(filter) ||
+      e.url.toLowerCase().includes(filter)
+    );
+
+    if(filtered.length === 0){
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="7">${entries.length ? "Ningún resultado coincide con la búsqueda." : "Todavía no hay entradas. Cargá un archivo o agregá una abajo."}</td></tr>`;
+    } else {
+      tbody.innerHTML = filtered.map((e) => rowHTML(e, entries.indexOf(e))).join("");
+    }
+
+    updateStats();
+  }
+
+  function statusMeta(status){
+    switch(status){
+      case "live": return { cls:"live", label:"VIVO" };
+      case "dead": return { cls:"dead", label:"MUERTO" };
+      case "checking": return { cls:"checking", label:"VALIDANDO…" };
+      default: return { cls:"unknown", label:"SIN VERIFICAR" };
+    }
+  }
+
+  function rowHTML(e, realIdx){
+    const meta = statusMeta(e.status);
+    const posterSrc = e.logo && e.logo.trim() ? escapeAttr(e.logo) : POSTER_PLACEHOLDER;
+    return `
+      <tr data-id="${e.id}">
+        <td class="idx">${realIdx}</td>
+        <td class="status-cell">
+          <div class="signal ${meta.cls}">
+            <span class="dot"></span>
+            <div>
+              <div class="label">${meta.label}</div>
+              ${e.detail ? `<div class="signal-detail">${escapeHtml(e.detail)}</div>` : ""}
+            </div>
+          </div>
+        </td>
+        <td class="poster-cell">
+          <div class="poster-box ${e.tmdbBusy ? "loading" : ""}">
+            <img class="poster-thumb" src="${posterSrc}" alt="" onerror="this.onerror=null;this.src='${POSTER_PLACEHOLDER}';">
+            <input class="cell-input logo-input" data-field="logo" value="${escapeAttr(e.logo || "")}" placeholder="URL poster">
+          </div>
+        </td>
+        <td><input class="cell-input" data-field="title" value="${escapeAttr(e.title)}"></td>
+        <td><input class="cell-input" data-field="group" value="${escapeAttr(e.group)}"></td>
+        <td><input class="cell-input url" data-field="url" value="${escapeAttr(e.url)}"></td>
+        <td class="actions">
+          <button class="small ghost tmdb-btn" data-action="tmdb" title="Buscar poster y género en TMDB">🎬</button>
+          <button class="small ghost" data-action="check" title="Validar este enlace">↻</button>
+          <button class="small ghost danger" data-action="remove" title="Eliminar">✕</button>
+        </td>
+      </tr>`;
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+  }
+  function escapeAttr(s){
+    return String(s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
+  }
+
+  function updateStats(){
+    const total = entries.length;
+    const live = entries.filter(e => e.status === "live").length;
+    const dead = entries.filter(e => e.status === "dead").length;
+    const unknown = total - live - dead;
+    $("#statTotal").textContent = total;
+    $("#statLive").textContent = live;
+    $("#statDead").textContent = dead;
+    $("#statUnknown").textContent = unknown;
+    statsBox.style.display = total ? "grid" : "none";
+    $("#btnDownload").disabled = total === 0;
+  }
+
+  // ---------------- Row-level edits ----------------
+  tbody.addEventListener("input", (ev) => {
+    const t = ev.target;
+    if(!t.classList.contains("cell-input")) return;
+    const tr = t.closest("tr");
+    const id = Number(tr.dataset.id);
+    const entry = entries.find(e => e.id === id);
+    if(!entry) return;
+    entry[t.dataset.field] = t.value;
+    if(t.dataset.field === "logo"){
+      const img = tr.querySelector(".poster-thumb");
+      if(img) img.src = t.value.trim() ? t.value : POSTER_PLACEHOLDER;
+    }
+  });
+
+  tbody.addEventListener("click", (ev) => {
+    const btn = ev.target.closest("button[data-action]");
+    if(!btn) return;
+    const tr = btn.closest("tr");
+    const id = Number(tr.dataset.id);
+    const entry = entries.find(e => e.id === id);
+    if(!entry) return;
+
+    if(btn.dataset.action === "remove"){
+      entries = entries.filter(e => e.id !== id);
+      render();
+    } else if(btn.dataset.action === "check"){
+      entry.status = "checking";
+      render();
+      validateEntry(entry).then(render);
+    } else if(btn.dataset.action === "tmdb"){
+      handleRowTmdb(entry);
+    }
+  });
+
+  searchInput.addEventListener("input", render);
+
+  // ---------------- Add entry ----------------
+  $("#btnAdd").addEventListener("click", () => {
+    const title = $("#newTitle").value.trim();
+    const url = $("#newUrl").value.trim();
+    const group = $("#newGroup").value.trim();
+    const logo = $("#newLogo").value.trim();
+    if(!title || !url){
+      $("#newTitle").focus();
+      return;
+    }
+    entries.push({ id: nextId++, duration:"-1", title, group, logo, url, attrs:{}, status:"unknown", detail:"", tmdbBusy:false });
+    $("#newTitle").value = ""; $("#newGroup").value = ""; $("#newLogo").value = ""; $("#newUrl").value = "";
+    showEditor();
+    render();
+  });
+
+  // ---------------- Generic concurrency pool ----------------
+  async function asyncPool(concurrency, items, worker, isStopped){
+    const executing = new Set();
+    for(const item of items){
+      if(isStopped && isStopped()) break;
+      const p = worker(item).then(() => executing.delete(p));
+      executing.add(p);
+      if(executing.size >= concurrency){
+        await Promise.race(executing);
+      }
+    }
+    await Promise.all(executing);
+  }
+
+  // ---------------- Link validation ----------------
+  async function checkUrl(url, timeoutMs = 8000){
+    if(!/^https?:\/\//i.test(url)){
+      return { status: "unknown", detail: "no es una URL http(s)" };
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try{
+      await fetch(url, { method: "GET", mode: "no-cors", cache: "no-store", signal: controller.signal });
+      clearTimeout(timer);
+      return { status: "live", detail: "conexión establecida" };
+    } catch(err){
+      clearTimeout(timer);
+      if(err.name === "AbortError"){
+        return { status: "dead", detail: `sin respuesta en ${timeoutMs/1000}s` };
+      }
+      return { status: "dead", detail: "conexión falló (red, DNS o bloqueo del navegador)" };
+    }
+  }
+
+  async function validateEntry(entry){
+    entry.status = "checking";
+    const res = await checkUrl(entry.url);
+    entry.status = res.status;
+    entry.detail = res.detail;
+    return entry;
+  }
+
+  $("#btnValidateAll").addEventListener("click", async () => {
+    if(validating || entries.length === 0) return;
+    validating = true;
+    stopRequested = false;
+    $("#btnValidateAll").disabled = true;
+    $("#btnStopValidate").style.display = "inline-flex";
+
+    entries.forEach(e => { e.status = "checking"; e.detail = ""; });
+    render();
+
+    await asyncPool(6, entries, async (entry) => {
+      await validateEntry(entry);
+      render();
+    }, () => stopRequested);
+
+    validating = false;
+    $("#btnValidateAll").disabled = false;
+    $("#btnStopValidate").style.display = "none";
+  });
+
+  $("#btnStopValidate").addEventListener("click", () => { stopRequested = true; });
+
+  $("#btnRemoveDead").addEventListener("click", () => {
+    entries = entries.filter(e => e.status !== "dead");
+    render();
+  });
+
+  // ---------------- TMDB settings panel ---------------
+  $("#btnToggleTmdb").addEventListener("click", () => {
+    tmdbPanel.classList.toggle("open");
+  });
+
+  $("#tmdbApiKey").addEventListener("change", () => {
+    genreMapMovie = null;
+    genreMapTv = null;
+    entries.forEach(e => { delete e._tmdb; });
+  });
+
+  function getApiKey(){ return $("#tmdbApiKey").value.trim(); }
+
+  function showTmdbBanner(message, kind){
+    tmdbBannerText.textContent = message;
+    tmdbBanner.classList.remove("error");
+    if(kind === "error") tmdbBanner.classList.add("error");
+    tmdbBanner.classList.add("show");
+  }
+  function hideTmdbBanner(){ tmdbBanner.classList.remove("show"); }
+  $("#btnCloseBanner").addEventListener("click", hideTmdbBanner);
+
+  // ---------------- TMDB lookups ----------------
+  function cleanTitleForSearch(title){
+    return title
+      .replace(/\[[^\]]*\]/g, " ")
+      .replace(/\b(4K|UHD|FHD|FULL ?HD|HD|SD|H\.?26[45]|VIP|LATINO|CASTELLANO|SUB|DUAL|MULTI)\b/gi, " ")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+  }
+
+  async function ensureGenres(apiKey){
+    if(genreMapMovie && genreMapTv) return;
+    if(genresLoadingPromise) return genresLoadingPromise;
+    genresLoadingPromise = (async () => {
+      const [movResp, tvResp] = await Promise.all([
+        fetch(`${TMDB_BASE}/genre/movie/list?api_key=${encodeURIComponent(apiKey)}&language=es-ES`),
+        fetch(`${TMDB_BASE}/genre/tv/list?api_key=${encodeURIComponent(apiKey)}&language=es-ES`)
+      ]);
+      if(movResp.status === 401 || tvResp.status === 401){
+        throw new Error("API key inválida (401)");
+      }
+      if(!movResp.ok || !tvResp.ok){
+        throw new Error(`HTTP ${movResp.status}/${tvResp.status} al pedir géneros`);
+      }
+      const movData = await movResp.json();
+      const tvData = await tvResp.json();
+      genreMapMovie = {};
+      (movData.genres || []).forEach(g => { genreMapMovie[g.id] = g.name; });
+      genreMapTv = {};
+      (tvData.genres || []).forEach(g => { genreMapTv[g.id] = g.name; });
+    })();
+    try{
+      await genresLoadingPromise;
+    } finally {
+      genresLoadingPromise = null;
+    }
+  }
+
+  async function tmdbSearch(apiKey, title){
+    const url = `${TMDB_BASE}/search/multi?api_key=${encodeURIComponent(apiKey)}&language=es-ES&include_adult=false&query=${encodeURIComponent(title)}`;
+    const resp = await fetch(url);
+    if(resp.status === 401) throw new Error("API key inválida (401)");
+    if(!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    const results = (data.results || []).filter(r => r.media_type === "movie" || r.media_type === "tv");
+    if(results.length === 0) return null;
+    results.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
+    return results[0];
+  }
+
+  function genreNameFor(result){
+    const map = result.media_type === "movie" ? genreMapMovie : genreMapTv;
+    const ids = result.genre_ids || [];
+    for(const id of ids){
+      if(map && map[id]) return map[id];
+    }
+    return null;
+  }
+
+  async function enrichEntry(entry, apiKey){
+    if(entry._tmdb) return entry._tmdb;
+    try{
+      await ensureGenres(apiKey);
+      const query = cleanTitleForSearch(entry.title);
+      if(!query){
+        entry._tmdb = { status: "empty", message: "título vacío" };
+        return entry._tmdb;
+      }
+      const result = await tmdbSearch(apiKey, query);
+      if(!result){
+        entry._tmdb = { status: "empty", message: `sin resultados en TMDB para "${query}"` };
+        return entry._tmdb;
+      }
+      const posterUrl = result.poster_path ? `https://image.tmdb.org/t/p/w500${result.poster_path}` : null;
+      const genreName = genreNameFor(result);
+      entry._tmdb = {
+        status: "ok",
+        posterUrl,
+        genreName,
+        mediaType: result.media_type,
+        matchedTitle: result.title || result.name
+      };
+      return entry._tmdb;
+    } catch(err){
+      entry._tmdb = { status: "error", message: err.message };
+      return entry._tmdb;
+    }
+  }
+
+  async function handleRowTmdb(entry){
+    const apiKey = getApiKey();
+    if(!apiKey){
+      tmdbPanel.classList.add("open");
+      showTmdbBanner("Ingresá tu clave de TMDB arriba antes de buscar.", "error");
+      return;
+    }
+    entry.tmdbBusy = true;
+    render();
+    const result = await enrichEntry(entry, apiKey);
+    entry.tmdbBusy = false;
+    if(result.status === "ok"){
+      if(result.posterUrl) entry.logo = result.posterUrl;
+      if(result.genreName) entry.group = result.genreName;
+      hideTmdbBanner();
+    } else if(result.status === "error"){
+      showTmdbBanner(`TMDB: ${result.message}`, "error");
+    } else if(result.status === "empty"){
+      showTmdbBanner(result.message, "info");
+    }
+    render();
+  }
+
+  async function runTmdbBulk({ applyPoster, applyGroup, label }){
+    const apiKey = getApiKey();
+    if(!apiKey){
+      tmdbPanel.classList.add("open");
+      showTmdbBanner("Ingresá tu clave de TMDB arriba antes de continuar.", "error");
+      return;
+    }
+    if(entries.length === 0 || tmdbBusyGlobal) return;
+
+    tmdbBusyGlobal = true;
+    tmdbAbort = false;
+    hideTmdbBanner();
+    $("#btnTmdbPosters").disabled = true;
+    $("#btnTmdbGroups").disabled = true;
+    $("#btnStopTmdb").style.display = "inline-flex";
+
+    let matched = 0, empty = 0;
+
+    await asyncPool(4, entries, async (entry) => {
+      entry.tmdbBusy = true;
+      render();
+      const result = await enrichEntry(entry, apiKey);
+      entry.tmdbBusy = false;
+      if(result.status === "ok"){
+        if(applyPoster && result.posterUrl) entry.logo = result.posterUrl;
+        if(applyGroup && result.genreName) entry.group = result.genreName;
+        matched++;
+      } else if(result.status === "empty"){
+        empty++;
+      } else if(result.status === "error"){
+        if(/401|inválida/i.test(result.message)){
+          tmdbAbort = true;
+          showTmdbBanner(`La clave de TMDB no es válida. Revisala en ⚙ TMDB. (${result.message})`, "error");
+        }
+      }
+      render();
+    }, () => tmdbAbort);
+
+    if(applyGroup && !tmdbAbort){
+      entries.sort((a, b) => {
+        const ga = a.group && a.group.trim() ? a.group : "\uffff";
+        const gb = b.group && b.group.trim() ? b.group : "\uffff";
+        return ga.localeCompare(gb, "es");
+      });
+    }
+
+    tmdbBusyGlobal = false;
+    $("#btnTmdbPosters").disabled = false;
+    $("#btnTmdbGroups").disabled = false;
+    $("#btnStopTmdb").style.display = "none";
+
+    if(!tmdbAbort){
+      showTmdbBanner(`${label}: ${matched} encontrados, ${empty} sin resultado en TMDB.`, matched ? undefined : "error");
+    }
+    render();
+  }
+
+  $("#btnTmdbPosters").addEventListener("click", () => {
+    runTmdbBulk({ applyPoster: true, applyGroup: false, label: "Posters" });
+  });
+  $("#btnTmdbGroups").addEventListener("click", () => {
+    runTmdbBulk({ applyPoster: false, applyGroup: true, label: "Géneros" });
+  });
+  $("#btnStopTmdb").addEventListener("click", () => { tmdbAbort = true; });
+
+  // ---------------- File loading ----------------
+  function loadText(text, filename){
+    entries = parseM3U(text);
+    sourceExt = /\.m3u8$/i.test(filename || "") ? ".m3u8" : ".m3u";
+    showEditor();
+    render();
+  }
+
+  function showEditor(){
+    dropzone.style.display = "none";
+    editorArea.style.display = "block";
+  }
+
+  $("#btnOpen").addEventListener("click", () => fileInput.click());
+  $("#btnNew").addEventListener("click", () => {
+    entries = [];
+    nextId = 1;
+    sourceExt = ".m3u";
+    showEditor();
+    render();
+  });
+
+  fileInput.addEventListener("change", () => {
+    const file = fileInput.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = () => loadText(String(reader.result), file.name);
+    reader.readAsText(file);
+  });
+
+  ["dragover","dragenter"].forEach(evt =>
+    dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.add("drag"); })
+  );
+  ["dragleave","drop"].forEach(evt =>
+    dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.remove("drag"); })
+  );
+  dropzone.addEventListener("drop", (e) => {
+    const file = e.dataTransfer.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = () => loadText(String(reader.result), file.name);
+    reader.readAsText(file);
+  });
+
+  // ---------------- Download ----------------
+  $("#btnDownload").addEventListener("click", () => {
+    const text = buildM3U(entries);
+    const blob = new Blob([text], { type: "audio/x-mpegurl" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "playlist" + sourceExt;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  });
+
+})();
+</script>
+</body>
+</html>
