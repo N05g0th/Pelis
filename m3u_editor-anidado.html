@@ -1,0 +1,1476 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mesa de Señal · Editor M3U/M3U8</title>
+<style>
+  :root{
+    --bg: #12140f;
+    --panel: #1b1e17;
+    --panel-raised: #21251c;
+    --border: #33362b;
+    --border-soft: #292c22;
+    --text: #e8e6dc;
+    --text-muted: #93917f;
+    --text-dim: #5f5d4f;
+    --brass: #c9a15a;
+    --brass-dim: #7d6739;
+    --live: #7ec98f;
+    --live-dim: #3c5943;
+    --dead: #d97060;
+    --dead-dim: #5a372f;
+    --unknown: #d9b35c;
+    --unknown-dim: #5a4f2f;
+    --tmdb: #6fb7d9;
+    --tmdb-dim: #3c5a68;
+    --flame-1: #5c2116;
+    --flame-2: #a13c22;
+    --flame-3: #d98a3d;
+    --font-display: 'Space Grotesk', 'Segoe UI', sans-serif;
+    --font-body: 'Inter', 'Segoe UI', sans-serif;
+    --font-mono: 'JetBrains Mono', 'Consolas', monospace;
+  }
+
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  *{ box-sizing: border-box; }
+
+  html, body{
+    margin:0; padding:0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body{
+    background-image:
+      radial-gradient(ellipse at top left, rgba(201,161,90,0.05), transparent 55%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px);
+  }
+
+  .wrap{ max-width: 1320px; margin: 0 auto; padding: 24px 20px 70px; }
+
+  /* ---------- Header ---------- */
+  header{
+    display:flex; justify-content:space-between; align-items:flex-end;
+    gap: 20px; flex-wrap: wrap;
+    padding-bottom: 16px;
+    border-bottom: 1px dashed var(--border);
+    margin-bottom: 16px;
+  }
+  .brand{ display:flex; align-items:center; gap:14px; }
+  .brand-mark{
+    width:40px; height:40px; border-radius:8px;
+    border:1px solid var(--brass-dim);
+    background: linear-gradient(160deg, var(--panel-raised), var(--panel));
+    display:flex; align-items:center; justify-content:center;
+    position:relative; flex-shrink:0;
+  }
+  .brand-mark .dot{
+    width:8px; height:8px; border-radius:50%;
+    background: var(--live);
+    box-shadow: 0 0 6px var(--live);
+    animation: pulse 2.2s ease-in-out infinite;
+  }
+  @keyframes pulse{
+    0%,100%{ opacity:1; transform:scale(1);}
+    50%{ opacity:.45; transform:scale(.8);}
+  }
+  .brand h1{
+    font-family: var(--font-display);
+    font-size: 21px; font-weight:700; margin:0; letter-spacing:.2px;
+  }
+  .brand p{ margin:2px 0 0; font-size:12.5px; color:var(--text-muted); font-family: var(--font-mono); }
+
+  .file-actions{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+
+  button, .btn{
+    font-family: var(--font-body);
+    font-size: 13px; font-weight:600;
+    padding: 9px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--panel-raised);
+    color: var(--text);
+    cursor: pointer;
+    transition: border-color .15s ease, transform .1s ease, background .15s ease;
+    display:inline-flex; align-items:center; gap:7px;
+  }
+  button:hover{ border-color: var(--brass-dim); background:#252a1e; }
+  button:active{ transform: translateY(1px); }
+  button:disabled{ opacity:.4; cursor:not-allowed; }
+  button.primary{
+    background: linear-gradient(160deg, #d9b56a, var(--brass));
+    color: #1a1608; border-color: var(--brass);
+  }
+  button.primary:hover{ filter: brightness(1.08); }
+  button.danger{ border-color: var(--dead-dim); }
+  button.danger:hover{ border-color: var(--dead); background:#2a1a16; }
+  button.ghost{ background: transparent; }
+  button.small{ padding:5px 9px; font-size:11.5px; }
+  button.tmdb-btn{ border-color: var(--tmdb-dim); }
+  button.tmdb-btn:hover{ border-color: var(--tmdb); background:#182228; }
+
+  input[type="file"]{ display:none; }
+
+  /* ---------- Signature icon bar (tipo ribbon) ---------- */
+  .iconbar{
+    display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;
+    background: linear-gradient(120deg, var(--flame-1), var(--flame-2) 55%, var(--flame-3) 130%);
+    border-radius: 12px; padding: 10px 16px; margin-bottom: 18px;
+    box-shadow: inset 0 0 50px rgba(0,0,0,.28), 0 6px 18px rgba(0,0,0,.25);
+  }
+  .iconbar .group{ display:flex; gap:6px; flex-wrap:wrap; }
+  .icon-btn{
+    display:flex; flex-direction:column; align-items:center; gap:3px;
+    background: rgba(0,0,0,.16); border:1px solid rgba(255,255,255,.12); border-radius:8px;
+    padding:7px 15px; color:#f6ecdc; font-size:10px; font-family: var(--font-mono);
+    text-transform:uppercase; letter-spacing:.6px; cursor:pointer; transition: .15s ease;
+    min-width:64px;
+  }
+  .icon-btn .ic{ font-size:18px; line-height:1; }
+  .icon-btn:hover{ background: rgba(0,0,0,.3); }
+  .icon-btn.active{ background: rgba(255,255,255,.2); border-color: rgba(255,255,255,.4); box-shadow: 0 0 0 1px rgba(255,255,255,.15) inset; }
+
+  /* ---------- Drop zone (empty state) ---------- */
+  .dropzone{
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    padding: 46px 20px;
+    text-align:center;
+    background: var(--panel);
+    color: var(--text-muted);
+    margin-bottom: 22px;
+    transition: border-color .15s ease, background .15s ease;
+  }
+  .dropzone.drag{ border-color: var(--brass); background:#20220f; color: var(--text); }
+  .dropzone strong{ color: var(--text); font-family: var(--font-display); font-size:16px; display:block; margin-bottom:6px;}
+  .dropzone .sub{ font-size:12.5px; margin-top:8px; font-family: var(--font-mono); color: var(--text-dim); }
+
+  /* ---------- TMDB settings panel ---------- */
+  .tmdb-panel{
+    display:none;
+    background: var(--panel);
+    border: 1px solid var(--tmdb-dim);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 18px;
+    gap: 10px;
+  }
+  .tmdb-panel.open{ display:flex; flex-direction:column; }
+  .tmdb-panel label{
+    font-family: var(--font-mono); font-size:11px; text-transform:uppercase;
+    letter-spacing:1px; color: var(--tmdb);
+  }
+  .tmdb-panel input{
+    background: var(--bg); border:1px solid var(--border); border-radius:6px;
+    padding: 9px 10px; color: var(--text); font-family: var(--font-mono); font-size:12.5px;
+    width:100%; max-width: 460px;
+  }
+  .tmdb-panel input:focus{ outline:none; border-color: var(--tmdb); }
+  .tmdb-panel .hint{ font-size:12px; color: var(--text-dim); line-height:1.6; max-width:680px; }
+
+  /* ---------- Banner ---------- */
+  .banner{
+    display:none; align-items:center; justify-content:space-between; gap:10px;
+    padding: 10px 14px; border-radius: 7px; margin-bottom: 16px;
+    font-size: 12.5px; border: 1px solid var(--unknown-dim); background: #26210f; color: var(--unknown);
+  }
+  .banner.show{ display:flex; }
+  .banner.error{ border-color: var(--dead-dim); background:#271712; color: var(--dead); }
+  .banner button{ padding:3px 8px; font-size:11px; border-color: currentColor; color:inherit; background:transparent; }
+
+  /* ---------- Stat readouts ---------- */
+  .stats{
+    display:grid; grid-template-columns: repeat(4, 1fr);
+    gap: 10px; margin-bottom: 18px;
+  }
+  .stat{
+    background: var(--panel);
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+    padding: 12px 14px;
+    position:relative;
+    overflow:hidden;
+  }
+  .stat::before{
+    content:''; position:absolute; left:0; top:0; bottom:0; width:3px;
+    background: var(--stat-color, var(--brass-dim));
+  }
+  .stat .n{ font-family: var(--font-mono); font-size: 22px; font-weight:600; line-height:1; }
+  .stat .l{ font-size: 10.5px; text-transform:uppercase; letter-spacing:1px; color: var(--text-muted); margin-top:5px; }
+  .stat.total{ --stat-color: var(--brass); }
+  .stat.live{ --stat-color: var(--live); }
+  .stat.dead{ --stat-color: var(--dead); }
+  .stat.unknown{ --stat-color: var(--unknown); }
+
+  /* ---------- Breadcrumb (listas anidadas) ---------- */
+  .breadcrumb{
+    display:none; align-items:center; flex-wrap:wrap; gap:6px;
+    background: var(--panel); border:1px solid var(--tmdb-dim); border-radius:8px;
+    padding: 9px 12px; margin-bottom: 14px;
+    font-family: var(--font-mono); font-size:12px;
+  }
+  .breadcrumb.show{ display:flex; }
+  .crumb{
+    cursor:pointer; padding:3px 8px; border-radius:5px; color: var(--text-muted);
+    transition:.15s ease;
+  }
+  .crumb:hover{ background: rgba(111,183,217,0.12); color: var(--text); }
+  .crumb:last-child{ color: var(--tmdb); font-weight:600; cursor:default; }
+  .crumb:last-child:hover{ background:transparent; }
+  .crumb-sep{ color: var(--text-dim); }
+
+  .nested-badge{ cursor:pointer; }
+  .nested-badge.loaded{ filter: drop-shadow(0 0 3px var(--tmdb)); }
+
+  /* ---------- Modal (carga manual de sublista) ---------- */
+  .modal-overlay{
+    display:none; position:fixed; inset:0; background: rgba(8,9,6,.72);
+    align-items:center; justify-content:center; z-index: 100; padding:20px;
+  }
+  .modal-overlay.show{ display:flex; }
+  .modal-box{
+    background: var(--panel-raised); border:1px solid var(--tmdb-dim); border-radius:10px;
+    padding: 18px; width:100%; max-width: 540px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.5);
+    display:flex; flex-direction:column; gap:12px;
+  }
+  .modal-title{ font-family: var(--font-display); font-size:15px; font-weight:700; }
+  .modal-title span{ color: var(--tmdb); }
+  .modal-sub{ font-size:12px; color: var(--text-muted); line-height:1.5; }
+  .modal-box textarea{
+    background: var(--bg); border:1px solid var(--border); border-radius:6px;
+    padding:9px 10px; color:var(--text); font-family: var(--font-mono); font-size:11.5px;
+    width:100%; resize:vertical; min-height:140px;
+  }
+  .modal-box textarea:focus{ outline:none; border-color: var(--tmdb); }
+  .modal-or{ text-align:center; font-family: var(--font-mono); font-size:10.5px; color: var(--text-dim); text-transform:uppercase; letter-spacing:1px; }
+  .modal-actions{ display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+
+  /* ---------- Toolbar ---------- */
+  .toolbar{
+    display:flex; justify-content:space-between; align-items:center;
+    gap:12px; flex-wrap:wrap; margin-bottom: 12px;
+  }
+  .toolbar .left, .toolbar .right{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .search{
+    background: var(--panel); border:1px solid var(--border); border-radius:6px;
+    padding: 8px 12px; color: var(--text); font-family: var(--font-mono); font-size:12.5px;
+    min-width: 220px;
+  }
+  .search::placeholder{ color: var(--text-dim); }
+
+  /* ---------- Groups panel ---------- */
+  .panel-box{
+    background: var(--panel);
+    border: 1px solid var(--border-soft);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .panel-title{
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 9px 14px; border-bottom: 1px solid var(--border-soft);
+    background: var(--panel-raised);
+    font-family: var(--font-mono); font-size:10.5px; text-transform:uppercase;
+    letter-spacing:1px; color: var(--text-dim);
+  }
+  .groups-panel{ margin-bottom:16px; }
+  .groups-scroll{ max-height: 230px; overflow-y:auto; }
+  table{ width:100%; border-collapse: collapse; }
+  thead th{
+    text-align:left; font-family: var(--font-mono); font-size:10.5px;
+    text-transform:uppercase; letter-spacing:1px; color: var(--text-dim);
+    padding: 9px 12px; border-bottom: 1px solid var(--border-soft);
+    background: var(--panel-raised); position:sticky; top:0;
+  }
+  tbody tr{ border-bottom: 1px solid var(--border-soft); cursor:pointer; }
+  tbody tr:last-child{ border-bottom:none; }
+  tbody tr:hover{ background: rgba(255,255,255,0.02); }
+  tbody tr.selected{ background: rgba(201,161,90,0.09); box-shadow: inset 3px 0 0 var(--brass); }
+  td{ padding: 8px 12px; vertical-align: middle; font-size:13px; }
+  td.idx{ font-family: var(--font-mono); color: var(--text-dim); font-size:12px; width: 34px; }
+  .group-name{ font-weight:600; }
+  .group-type{ font-family: var(--font-mono); font-size:11.5px; color: var(--text-muted); }
+  .star{ cursor:pointer; font-size:14px; color: var(--text-dim); user-select:none; }
+  .star.fav{ color: var(--brass); }
+  .all-groups-row td{ font-family: var(--font-mono); font-size:11.5px; color: var(--text-muted); text-transform:uppercase; letter-spacing:1px; }
+
+  /* ---------- Main content: streams + detail ---------- */
+  .content-grid{ display:grid; grid-template-columns: 1.7fr 1fr; gap:16px; align-items:start; }
+
+  .streams-scroll{ max-height: 560px; overflow-y:auto; }
+  .stream-row td{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:1px; }
+  .stream-row .cell-title{ font-weight:500; }
+  .stream-row .cell-url, .stream-row .cell-logo{ font-family: var(--font-mono); font-size:11.5px; color: var(--text-muted); }
+  .stream-row .mini-signal{ display:inline-flex; align-items:center; gap:6px; }
+  .mini-dot{ width:8px; height:8px; border-radius:50%; flex-shrink:0; background: var(--text-dim); border:1px solid var(--border); }
+  .mini-dot.live{ background: var(--live); box-shadow:0 0 5px var(--live); }
+  .mini-dot.dead{ background: var(--dead); }
+  .mini-dot.unknown{ background: var(--unknown); }
+  .mini-dot.checking{ background: var(--brass); animation: scan .9s linear infinite; }
+  @keyframes scan{ 0%{opacity:.25;} 50%{opacity:1;} 100%{opacity:.25;} }
+  td.stream-actions{ width:96px; text-align:right; white-space:nowrap; }
+
+  .empty-row td{ padding: 40px 12px; text-align:center; color: var(--text-dim); font-family: var(--font-mono); font-size:12.5px; }
+
+  /* ---------- Detail / poster panel ---------- */
+  .detail-panel{
+    background: var(--panel);
+    border: 1px solid var(--border-soft);
+    border-radius: 10px;
+    padding: 14px;
+    display:flex; flex-direction:column; gap:12px;
+    position: sticky; top: 16px;
+  }
+  .poster-frame{
+    width:100%; aspect-ratio: 2 / 3; border-radius:8px; overflow:hidden;
+    border:1px solid var(--border-soft); background: var(--panel-raised);
+    display:flex; align-items:center; justify-content:center; position:relative;
+  }
+  .poster-frame img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .poster-frame.loading::after{
+    content:''; position:absolute; inset:0;
+    background: linear-gradient(100deg, transparent, rgba(111,183,217,0.15), transparent);
+    animation: sweep 1.1s linear infinite;
+  }
+  @keyframes sweep{ 0%{ transform: translateX(-100%);} 100%{ transform: translateX(100%);} }
+  .detail-empty{ font-family: var(--font-mono); font-size:11.5px; color: var(--text-dim); text-align:center; padding:6px 4px 0; }
+
+  .field{ display:flex; flex-direction:column; gap:5px; }
+  .field label{
+    font-family: var(--font-mono); font-size:10px; text-transform:uppercase;
+    letter-spacing:1px; color: var(--text-dim);
+  }
+  .field input, .field select{
+    background: var(--bg); border:1px solid var(--border); border-radius:6px;
+    padding: 8px 10px; color: var(--text); font-family: var(--font-body); font-size:12.5px;
+  }
+  .field input.mono{ font-family: var(--font-mono); font-size:11.5px; }
+  .field input:focus, .field select:focus{ outline:none; border-color: var(--brass-dim); }
+
+  .lang-row{ display:flex; gap:8px; align-items:flex-end; }
+  .lang-row .field{ flex:1; }
+  .lang-row button{ flex-shrink:0; }
+
+  .genre-chips{ display:flex; flex-wrap:wrap; gap:6px; margin-top:2px; }
+  .genre-chips .chip-label{
+    width:100%; font-family: var(--font-mono); font-size:10px; text-transform:uppercase;
+    letter-spacing:.6px; color: var(--tmdb); margin-bottom:1px;
+  }
+  .genre-chip{
+    font-family: var(--font-body); font-size:11.5px; font-weight:600;
+    padding: 4px 10px; border-radius: 999px; cursor:pointer;
+    border: 1px solid var(--tmdb-dim); background: rgba(111,183,217,0.08); color: var(--text);
+    transition: .15s ease;
+  }
+  .genre-chip:hover{ border-color: var(--tmdb); background: rgba(111,183,217,0.16); }
+  .genre-chip.chosen{ background: var(--tmdb); border-color: var(--tmdb); color:#0d1f26; }
+
+  .detail-actions{ display:flex; gap:8px; flex-wrap:wrap; margin-top:2px; }
+  .detail-actions button{ flex:1; justify-content:center; }
+  .detail-status{ font-family: var(--font-mono); font-size:11px; color: var(--text-dim); min-height:14px; }
+  .detail-status.ok{ color: var(--tmdb); }
+  .detail-status.err{ color: var(--dead); }
+
+  /* ---------- Add-entry bar ---------- */
+  .add-bar-hint{
+    padding: 10px 14px; font-size:12px; color: var(--text-dim); font-family: var(--font-mono);
+    border-top: 1px dashed var(--border-soft); background: var(--panel-raised);
+  }
+
+  /* ---------- Footer note ---------- */
+  .note{
+    margin-top: 22px; padding: 14px 16px;
+    border: 1px solid var(--border-soft); border-radius: 8px;
+    background: var(--panel); color: var(--text-muted); font-size:12.5px; line-height:1.6;
+  }
+  .note strong{ color: var(--unknown); }
+  .note code{ font-family: var(--font-mono); background: var(--panel-raised); padding:1px 5px; border-radius:4px; font-size:11.5px; }
+  .note + .note{ margin-top:10px; }
+  .note.tmdb-note strong{ color: var(--tmdb); }
+
+  @media (max-width: 900px){
+    .content-grid{ grid-template-columns: 1fr; }
+    .detail-panel{ position:static; }
+  }
+  @media (max-width: 720px){
+    .stats{ grid-template-columns: repeat(2,1fr); }
+    thead{ display:none; }
+    .groups-scroll table, .groups-scroll tbody, .groups-scroll tr, .groups-scroll td{ display:block; width:100%; }
+    .icon-btn{ min-width:56px; padding:6px 10px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <div class="brand-mark"><div class="dot"></div></div>
+      <div>
+        <h1>Mesa de Señal</h1>
+        <p>editor &amp; validador de playlists m3u / m3u8</p>
+      </div>
+    </div>
+    <div class="file-actions">
+      <input type="file" id="fileInput" accept=".m3u,.m3u8,text/plain">
+      <button class="ghost" id="btnOpen">Abrir archivo</button>
+      <button class="ghost" id="btnNew">Nueva lista</button>
+      <button class="primary" id="btnDownload" disabled>Descargar .m3u</button>
+    </div>
+  </header>
+
+  <div class="iconbar">
+    <div class="group">
+      <div class="icon-btn active" data-filter="all"><span class="ic">📺</span>Todos</div>
+      <div class="icon-btn" data-filter="live"><span class="ic">📡</span>En vivo</div>
+      <div class="icon-btn" data-filter="vod"><span class="ic">🎬</span>Películas</div>
+      <div class="icon-btn" data-filter="radio"><span class="ic">📻</span>Radio</div>
+    </div>
+    <div class="group">
+      <div class="icon-btn" id="btnToggleTmdb"><span class="ic">⚙</span>TMDB</div>
+      <div class="icon-btn" id="btnNewEntry"><span class="ic">✎</span>Agregar</div>
+    </div>
+  </div>
+
+  <div class="tmdb-panel" id="tmdbPanel">
+    <label for="tmdbApiKey">Clave de API de TMDB (v3)</label>
+    <input type="text" id="tmdbApiKey" value="6f6ac958e9e94c4c42371ebba58f4e00" spellcheck="false">
+    <div class="hint">
+      Esta clave se usa solo en tu navegador para consultar <strong style="color:var(--tmdb);">themoviedb.org</strong> y no se guarda en ningún servidor ni persiste al recargar la página. Al editar una entrada podés elegir un idioma y presionar "Buscar en TMDB" para traer el título en ese idioma junto con el poster oficial. Tené en cuenta que si compartís este archivo HTML con otra persona, ella verá esta misma clave en el código.
+    </div>
+  </div>
+
+  <div id="dropzone" class="dropzone">
+    <strong>Arrastrá tu archivo .m3u o .m3u8 acá</strong>
+    <span>o hacé clic en "Abrir archivo" · también podés empezar una lista vacía con "Nueva lista"</span>
+    <div class="sub">nada se sube a ningún servidor propio — todo se procesa en tu navegador</div>
+  </div>
+
+  <div class="stats" id="stats" style="display:none;">
+    <div class="stat total"><div class="n" id="statTotal">0</div><div class="l">Canales</div></div>
+    <div class="stat live"><div class="n" id="statLive">0</div><div class="l">Vivos</div></div>
+    <div class="stat dead"><div class="n" id="statDead">0</div><div class="l">Muertos</div></div>
+    <div class="stat unknown"><div class="n" id="statUnknown">0</div><div class="l">Sin verificar</div></div>
+  </div>
+
+  <div id="editorArea" style="display:none;">
+    <div class="banner" id="tmdbBanner">
+      <span id="tmdbBannerText"></span>
+      <button id="btnCloseBanner">cerrar</button>
+    </div>
+
+    <div class="toolbar">
+      <div class="left">
+        <button class="primary" id="btnValidateAll">Validar todos los enlaces</button>
+        <button class="ghost" id="btnStopValidate" style="display:none;">Detener</button>
+        <button class="ghost danger" id="btnRemoveDead">Quitar muertos</button>
+      </div>
+      <div class="right">
+        <input class="search" id="search" placeholder="Buscar por título, grupo o URL…">
+      </div>
+    </div>
+
+    <div class="breadcrumb" id="breadcrumb"></div>
+
+    <div class="panel-box groups-panel">
+      <div class="panel-title">
+        <span>Grupos</span>
+        <span id="groupsCount">0 grupos</span>
+      </div>
+      <div class="groups-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Group name</th>
+              <th style="width:110px;">Streams</th>
+              <th style="width:140px;">Type</th>
+              <th style="width:50px;">Status</th>
+            </tr>
+          </thead>
+          <tbody id="groupsBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="content-grid">
+      <div class="panel-box">
+        <div class="panel-title">
+          <span id="streamsTitle">Todas las entradas</span>
+          <span id="streamsCount">0</span>
+        </div>
+        <div class="streams-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:34px;">#</th>
+                <th style="width:30px;"></th>
+                <th>Name</th>
+                <th>TVG-Logo</th>
+                <th>URL</th>
+                <th style="width:70px;"></th>
+              </tr>
+            </thead>
+            <tbody id="streamsBody">
+              <tr class="empty-row"><td colspan="6">Todavía no hay entradas. Cargá un archivo o agregá una con "✎ Agregar".</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="detail-panel">
+        <div class="poster-frame" id="posterFrame">
+          <img id="posterImg" src="" alt="" onerror="this.style.opacity='0.35';">
+        </div>
+        <div class="detail-empty" id="detailEmpty">Elegí una entrada de la lista, o tocá "✎ Agregar" para crear una nueva.</div>
+
+        <div id="detailForm" style="display:none; flex-direction:column; gap:12px;">
+          <div class="field">
+            <label for="dTitle">Título</label>
+            <input type="text" id="dTitle" placeholder="Nombre del canal / película">
+          </div>
+          <div class="field">
+            <label for="dGroup">Grupo</label>
+            <input type="text" id="dGroup" list="groupList" placeholder="Ej: Drama, Acción…">
+            <datalist id="groupList"></datalist>
+            <div class="genre-chips" id="genreChips" style="display:none;"></div>
+          </div>
+          <div class="field">
+            <label for="dLogo">URL del poster (tvg-logo)</label>
+            <input type="text" class="mono" id="dLogo" placeholder="https://image.tmdb.org/t/p/w500/…">
+          </div>
+          <div class="field">
+            <label for="dUrl">URL del stream</label>
+            <input type="text" class="mono" id="dUrl" placeholder="https://ejemplo.com/stream.m3u8">
+          </div>
+
+          <div class="lang-row">
+            <div class="field">
+              <label for="dLang">Idioma (TMDB)</label>
+              <select id="dLang">
+                <option value="es-ES">Español</option>
+                <option value="es-MX">Español (México)</option>
+                <option value="en-US">English</option>
+                <option value="fr-FR">Français</option>
+                <option value="de-DE">Deutsch</option>
+                <option value="it-IT">Italiano</option>
+                <option value="pt-BR">Português (BR)</option>
+                <option value="pt-PT">Português (PT)</option>
+                <option value="ja-JP">日本語</option>
+                <option value="ko-KR">한국어</option>
+              </select>
+            </div>
+            <button class="tmdb-btn" id="btnDetailTmdb">🎬 Buscar en TMDB</button>
+          </div>
+          <div class="detail-status" id="detailStatus"></div>
+
+          <div class="detail-actions">
+            <button class="ghost" id="btnDetailValidate">↻ Validar enlace</button>
+            <button class="ghost" id="btnDetailOpenNested">🗂 Abrir como sublista</button>
+          </div>
+          <div class="detail-actions">
+            <button class="primary" id="btnDetailSave">Guardar entrada</button>
+            <button class="ghost danger" id="btnDetailDelete" style="display:none;">Eliminar</button>
+          </div>
+          <button class="ghost" id="btnDetailCancel">Cancelar</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="note">
+      <strong>Sobre la validación de enlaces:</strong> por seguridad, los navegadores no dejan que una página web lea el código de respuesta real de otro servidor (política CORS), así que esta herramienta interpreta <em>“vivo”</em> como “el navegador logró establecer conexión” y <em>“muerto”</em> como “la conexión falló directamente” (DNS, servidor caído, timeout). Streams <code>http://</code> cargados desde esta página <code>https://</code> pueden marcarse como muertos por bloqueo de contenido mixto aunque estén funcionando.
+    </div>
+    <div class="note tmdb-note">
+      <strong>Sobre "Buscar en TMDB":</strong> busca el título en The Movie Database y completa el poster y el nombre en el idioma elegido (usando <code>title/name</code> de la ficha en ese idioma). Funciona mejor con títulos "limpios" (sin etiquetas de calidad tipo HD/4K/DUAL) — editá el título antes de buscar si el resultado no es el esperado. Canales de TV en vivo, radios o eventos deportivos normalmente no tienen ficha en TMDB.
+    </div>
+    <div class="note">
+      <strong style="color:var(--tmdb);">Sobre listas anidadas:</strong> cualquier entrada puede apuntar, en vez de a un stream, a otro archivo <code>.m3u</code>/<code>.m3u8</code> (típico de portales que agrupan varias listas). Tocá el ícono <code>🗂</code> en la fila (o "Abrir como sublista" en el panel de edición) para entrar a esa lista anidada — podés seguir bajando niveles, y volver con las migas de pan de arriba. El navegador intenta cargarla automáticamente; si el servidor bloquea la petición (CORS), te va a pedir pegar el contenido o subir el archivo a mano.
+    </div>
+  </div>
+
+</div>
+
+<div class="modal-overlay" id="nestedModalOverlay">
+  <div class="modal-box">
+    <div class="modal-title">Abrir sublista: <span id="nestedModalName"></span></div>
+    <div class="modal-sub" id="nestedModalSub"></div>
+    <div class="field">
+      <label for="nestedModalText">Contenido M3U/M3U8</label>
+      <textarea id="nestedModalText" placeholder="#EXTM3U&#10;#EXTINF:-1,Canal&#10;https://…"></textarea>
+    </div>
+    <div class="modal-or">— o —</div>
+    <input type="file" id="nestedModalFile" accept=".m3u,.m3u8,text/plain">
+    <div class="modal-actions">
+      <button class="ghost" id="nestedModalRetry">↻ Reintentar carga automática</button>
+      <button class="ghost" id="nestedModalCancel">Cancelar</button>
+      <button class="primary" id="nestedModalLoad">Abrir sublista</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  const TMDB_BASE = "https://api.themoviedb.org/3";
+  const POSTER_PLACEHOLDER = "data:image/svg+xml;utf8," + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="300" viewBox="0 0 200 300">' +
+    '<rect width="200" height="300" fill="#21251c"/>' +
+    '<path d="M60 120h80M60 150h80M60 180h50" stroke="#5f5d4f" stroke-width="6" stroke-linecap="round"/>' +
+    '</svg>'
+  );
+
+  // entry: {id, duration, title, group, logo, url, attrs:{}, status, detail, childNodeId}
+  // node (nivel de lista, raíz o sublista anidada): {id, name, ext, entries:[...], parentEntryId}
+  let entries = [];       // alias del array de entries del nodo actual (misma referencia que node.entries)
+  let nodes = {};         // id -> node
+  let nodeStack = [];     // pila de ids de nodo = breadcrumb (nodeStack[0] es la raíz)
+  let nextNodeId = 1;
+  let nextId = 1;
+  let validating = false;
+  let stopRequested = false;
+  let pendingNestedEntry = null; // entrada esperando carga manual en el modal
+
+  let selectedGroup = null;   // null = todos los grupos
+  let typeFilter = "all";     // all | live | vod | radio
+  let favoriteGroups = new Set();
+  let selectedEntryId = null; // entrada mostrada/editada en el panel derecho
+  let editingIsNew = false;
+
+  function getCurrentNode(){ return nodes[nodeStack[nodeStack.length - 1]]; }
+  function setEntries(arr){ entries = arr; getCurrentNode().entries = arr; }
+
+  const $ = (sel) => document.querySelector(sel);
+  const fileInput = $("#fileInput");
+  const dropzone = $("#dropzone");
+  const editorArea = $("#editorArea");
+  const statsBox = $("#stats");
+  const groupsBody = $("#groupsBody");
+  const streamsBody = $("#streamsBody");
+  const streamsTitle = $("#streamsTitle");
+  const streamsCount = $("#streamsCount");
+  const groupsCount = $("#groupsCount");
+  const searchInput = $("#search");
+  const tmdbPanel = $("#tmdbPanel");
+  const tmdbBanner = $("#tmdbBanner");
+  const tmdbBannerText = $("#tmdbBannerText");
+  const posterFrame = $("#posterFrame");
+  const posterImg = $("#posterImg");
+  const detailEmpty = $("#detailEmpty");
+  const detailForm = $("#detailForm");
+  const detailStatus = $("#detailStatus");
+  const groupListDatalist = $("#groupList");
+  const breadcrumbBox = $("#breadcrumb");
+  const nestedModalOverlay = $("#nestedModalOverlay");
+  const nestedModalName = $("#nestedModalName");
+  const nestedModalSub = $("#nestedModalSub");
+  const nestedModalText = $("#nestedModalText");
+  const nestedModalFile = $("#nestedModalFile");
+
+  // ---------------- Parsing ----------------
+  function parseM3U(text){
+    const lines = text.split(/\r?\n/);
+    const result = [];
+    let pending = null;
+
+    for(let raw of lines){
+      const line = raw.trim();
+      if(!line) continue;
+      if(line === "#EXTM3U") continue;
+
+      if(line.startsWith("#EXTINF")){
+        const m = line.match(/^#EXTINF:(-?\d+)\s*(.*?),(.*)$/);
+        pending = { duration: "-1", title: "", attrs: {} };
+        if(m){
+          pending.duration = m[1];
+          const attrStr = m[2];
+          pending.title = m[3].trim();
+          const attrRe = /(\S+?)="(.*?)"/g;
+          let am;
+          while((am = attrRe.exec(attrStr)) !== null){
+            pending.attrs[am[1]] = am[2];
+          }
+        } else {
+          pending.title = line.replace("#EXTINF:", "").trim();
+        }
+      } else if(line.startsWith("#")){
+        continue; // otros tags no se preservan al editar
+      } else {
+        const e = pending || { duration:"-1", title: line.split("/").pop(), attrs:{} };
+        result.push({
+          id: nextId++,
+          duration: e.duration,
+          title: e.title || line,
+          group: e.attrs["group-title"] || "",
+          logo: e.attrs["tvg-logo"] || "",
+          url: line,
+          attrs: e.attrs,
+          status: "unknown",
+          detail: ""
+        });
+        pending = null;
+      }
+    }
+    return result;
+  }
+
+  function buildM3U(list){
+    let out = "#EXTM3U\n";
+    for(const e of list){
+      const attrs = { ...e.attrs };
+      if(e.group) attrs["group-title"] = e.group; else delete attrs["group-title"];
+      if(e.logo) attrs["tvg-logo"] = e.logo; else delete attrs["tvg-logo"];
+      const attrStr = Object.entries(attrs).map(([k,v]) => `${k}="${v}"`).join(" ");
+      out += attrStr
+        ? `#EXTINF:${e.duration} ${attrStr},${e.title}\n`
+        : `#EXTINF:${e.duration},${e.title}\n`;
+      out += `${e.url}\n`;
+    }
+    return out;
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+  }
+  function escapeAttr(s){
+    return String(s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
+  }
+
+  // ---------------- Type heuristics ----------------
+  function isLiveUrl(e){
+    return /\.m3u8(\?|$)/i.test(e.url) || /\/live\//i.test(e.url) || /live/i.test(e.group || "");
+  }
+  function isRadioEntry(e){
+    return /radio/i.test(e.group || "") || /radio/i.test(e.title || "");
+  }
+  function matchesTypeFilter(e){
+    if(typeFilter === "all") return true;
+    if(typeFilter === "radio") return isRadioEntry(e);
+    if(typeFilter === "live") return isLiveUrl(e) && !isRadioEntry(e);
+    if(typeFilter === "vod") return !isLiveUrl(e) && !isRadioEntry(e);
+    return true;
+  }
+
+  // ---------------- Groups ----------------
+  function computeGroups(){
+    const map = {};
+    entries.forEach(e => {
+      const name = (e.group && e.group.trim()) ? e.group.trim() : "Sin grupo";
+      if(!map[name]) map[name] = { name, count:0, live:0, vod:0, radio:0 };
+      map[name].count++;
+      if(isRadioEntry(e)) map[name].radio++;
+      else if(isLiveUrl(e)) map[name].live++;
+      else map[name].vod++;
+    });
+    const list = Object.values(map);
+    list.sort((a,b) => {
+      const fa = favoriteGroups.has(a.name) ? 0 : 1;
+      const fb = favoriteGroups.has(b.name) ? 0 : 1;
+      if(fa !== fb) return fa - fb;
+      return a.name.localeCompare(b.name, "es");
+    });
+    return list;
+  }
+
+  function typeLabel(g){
+    const kinds = [];
+    if(g.live) kinds.push("Live");
+    if(g.vod) kinds.push("VOD");
+    if(g.radio) kinds.push("Radio");
+    return kinds.length ? kinds.join(" / ") : "—";
+  }
+
+  function renderGroups(){
+    const groups = computeGroups();
+    groupsCount.textContent = `${groups.length} grupo${groups.length === 1 ? "" : "s"}`;
+
+    groupListDatalist.innerHTML = groups.map(g => `<option value="${escapeAttr(g.name)}">`).join("");
+
+    let rows = `<tr class="all-groups-row ${selectedGroup === null ? "selected" : ""}" data-group="">
+        <td colspan="4">▤ Todos los grupos · ${entries.length} entradas</td>
+      </tr>`;
+
+    rows += groups.map(g => `
+      <tr class="${selectedGroup === g.name ? "selected" : ""}" data-group="${escapeAttr(g.name)}">
+        <td class="group-name">${escapeHtml(g.name)}</td>
+        <td>${g.count}</td>
+        <td class="group-type">${typeLabel(g)}</td>
+        <td><span class="star ${favoriteGroups.has(g.name) ? "fav" : ""}" data-star="${escapeAttr(g.name)}">${favoriteGroups.has(g.name) ? "★" : "☆"}</span></td>
+      </tr>`).join("");
+
+    groupsBody.innerHTML = rows;
+  }
+
+  groupsBody.addEventListener("click", (ev) => {
+    const star = ev.target.closest("[data-star]");
+    if(star){
+      const name = star.dataset.star;
+      if(favoriteGroups.has(name)) favoriteGroups.delete(name); else favoriteGroups.add(name);
+      renderGroups();
+      return;
+    }
+    const tr = ev.target.closest("tr[data-group]");
+    if(!tr) return;
+    const g = tr.dataset.group;
+    selectedGroup = g === "" ? null : g;
+    renderGroups();
+    renderStreams();
+  });
+
+  // ---------------- Streams list ----------------
+  function statusMeta(status){
+    switch(status){
+      case "live": return { cls:"live", label:"VIVO" };
+      case "dead": return { cls:"dead", label:"MUERTO" };
+      case "checking": return { cls:"checking", label:"…" };
+      default: return { cls:"unknown", label:"?" };
+    }
+  }
+
+  function visibleEntries(){
+    const filter = searchInput.value.trim().toLowerCase();
+    return entries.filter(e => {
+      if(selectedGroup !== null){
+        const name = (e.group && e.group.trim()) ? e.group.trim() : "Sin grupo";
+        if(name !== selectedGroup) return false;
+      }
+      if(!matchesTypeFilter(e)) return false;
+      if(filter && !(e.title.toLowerCase().includes(filter) || (e.group||"").toLowerCase().includes(filter) || e.url.toLowerCase().includes(filter))) return false;
+      return true;
+    });
+  }
+
+  function renderStreams(){
+    streamsTitle.textContent = selectedGroup === null ? "Todas las entradas" : selectedGroup;
+    const list = visibleEntries();
+    streamsCount.textContent = list.length;
+
+    if(list.length === 0){
+      streamsBody.innerHTML = `<tr class="empty-row"><td colspan="6">${entries.length ? "Ningún resultado coincide con el filtro." : "Todavía no hay entradas. Cargá un archivo o agregá una con \u201c\u270e Agregar\u201d."}</td></tr>`;
+    } else {
+      streamsBody.innerHTML = list.map((e, i) => streamRowHTML(e, i)).join("");
+    }
+    updateStats();
+  }
+
+  function streamRowHTML(e, idx){
+    const meta = statusMeta(e.status);
+    const selectedCls = e.id === selectedEntryId ? "selected" : "";
+    return `
+      <tr class="stream-row ${selectedCls}" data-id="${e.id}">
+        <td class="idx">${idx + 1}</td>
+        <td><span class="mini-dot ${meta.cls}" title="${meta.label}"></span></td>
+        <td class="cell-title" title="${escapeAttr(e.title)}">${escapeHtml(e.title)}</td>
+        <td class="cell-logo" title="${escapeAttr(e.logo)}">${escapeHtml(e.logo || "—")}</td>
+        <td class="cell-url" title="${escapeAttr(e.url)}">${escapeHtml(e.url)}</td>
+        <td class="stream-actions">
+          <button class="small ghost nested-badge ${e.childNodeId ? "loaded" : ""}" data-action="opennested" title="${e.childNodeId ? "Entrar a la sublista ya cargada" : "Abrir como lista anidada"}">${e.childNodeId ? "📂" : "🗂"}</button>
+          <button class="small ghost" data-action="check" title="Validar enlace">↻</button>
+          <button class="small ghost danger" data-action="remove" title="Eliminar">✕</button>
+        </td>
+      </tr>`;
+  }
+
+  streamsBody.addEventListener("click", (ev) => {
+    const btn = ev.target.closest("button[data-action]");
+    const tr = ev.target.closest("tr[data-id]");
+    if(!tr) return;
+    const id = Number(tr.dataset.id);
+    const entry = entries.find(e => e.id === id);
+    if(!entry) return;
+
+    if(btn && btn.dataset.action === "remove"){
+      setEntries(entries.filter(e => e.id !== id));
+      if(selectedEntryId === id) closeDetail();
+      renderGroups();
+      renderStreams();
+      return;
+    }
+    if(btn && btn.dataset.action === "check"){
+      entry.status = "checking";
+      renderStreams();
+      validateEntry(entry).then(() => { renderStreams(); if(selectedEntryId === id) syncDetailStatus(entry); });
+      return;
+    }
+    if(btn && btn.dataset.action === "opennested"){
+      openNestedEntry(entry);
+      return;
+    }
+    // click en la fila: seleccionar y mostrar en el panel derecho
+    openEntryForEdit(id);
+  });
+
+  searchInput.addEventListener("input", renderStreams);
+
+  // ---------------- Filtro por tipo (iconbar) ----------------
+  document.querySelectorAll(".icon-btn[data-filter]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".icon-btn[data-filter]").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      typeFilter = btn.dataset.filter;
+      renderStreams();
+    });
+  });
+
+  // ---------------- Stats ----------------
+  function updateStats(){
+    const total = entries.length;
+    const live = entries.filter(e => e.status === "live").length;
+    const dead = entries.filter(e => e.status === "dead").length;
+    const unknown = total - live - dead;
+    $("#statTotal").textContent = total;
+    $("#statLive").textContent = live;
+    $("#statDead").textContent = dead;
+    $("#statUnknown").textContent = unknown;
+    statsBox.style.display = total ? "grid" : "none";
+    $("#btnDownload").disabled = total === 0;
+  }
+
+  // ---------------- Detail / edit panel ----------------
+  function setPoster(url){
+    posterImg.src = url && url.trim() ? url : POSTER_PLACEHOLDER;
+  }
+
+  function openEntryForEdit(id){
+    const entry = entries.find(e => e.id === id);
+    if(!entry) return;
+    selectedEntryId = id;
+    editingIsNew = false;
+    detailEmpty.style.display = "none";
+    detailForm.style.display = "flex";
+    $("#dTitle").value = entry.title || "";
+    $("#dGroup").value = entry.group || "";
+    $("#dLogo").value = entry.logo || "";
+    $("#dUrl").value = entry.url || "";
+    setPoster(entry.logo);
+    $("#btnDetailDelete").style.display = "inline-flex";
+    detailStatus.textContent = "";
+    detailStatus.className = "detail-status";
+    renderGenreChips([]);
+    renderStreams();
+  }
+
+  function openEntryForNew(){
+    selectedEntryId = null;
+    editingIsNew = true;
+    detailEmpty.style.display = "none";
+    detailForm.style.display = "flex";
+    $("#dTitle").value = "";
+    $("#dGroup").value = selectedGroup || "";
+    $("#dLogo").value = "";
+    $("#dUrl").value = "";
+    setPoster("");
+    $("#btnDetailDelete").style.display = "none";
+    detailStatus.textContent = "";
+    detailStatus.className = "detail-status";
+    renderGenreChips([]);
+    $("#dTitle").focus();
+    renderStreams();
+  }
+
+  function closeDetail(){
+    selectedEntryId = null;
+    editingIsNew = false;
+    detailForm.style.display = "none";
+    detailEmpty.style.display = "block";
+    setPoster("");
+    renderGenreChips([]);
+    renderStreams();
+  }
+
+  function syncDetailStatus(entry){
+    if(selectedEntryId !== entry.id) return;
+    // el panel no muestra el estado de validación directamente, pero refrescamos la lista
+  }
+
+  $("#btnNewEntry").addEventListener("click", () => {
+    showEditor();
+    openEntryForNew();
+  });
+
+  $("#btnDetailCancel").addEventListener("click", closeDetail);
+
+  $("#btnDetailOpenNested").addEventListener("click", () => {
+    if(editingIsNew){
+      detailStatus.textContent = "Guardá la entrada primero para poder abrirla como sublista.";
+      detailStatus.className = "detail-status err";
+      return;
+    }
+    const entry = entries.find(e => e.id === selectedEntryId);
+    if(entry) openNestedEntry(entry);
+  });
+
+  $("#dLogo").addEventListener("input", () => setPoster($("#dLogo").value));
+
+  $("#btnDetailSave").addEventListener("click", () => {
+    const title = $("#dTitle").value.trim();
+    const url = $("#dUrl").value.trim();
+    const group = $("#dGroup").value.trim();
+    const logo = $("#dLogo").value.trim();
+    if(!title || !url){
+      detailStatus.textContent = "El título y la URL del stream son obligatorios.";
+      detailStatus.className = "detail-status err";
+      return;
+    }
+    if(editingIsNew){
+      const entry = { id: nextId++, duration:"-1", title, group, logo, url, attrs:{}, status:"unknown", detail:"" };
+      entries.push(entry);
+      selectedEntryId = entry.id;
+      editingIsNew = false;
+      $("#btnDetailDelete").style.display = "inline-flex";
+    } else {
+      const entry = entries.find(e => e.id === selectedEntryId);
+      if(entry){
+        entry.title = title; entry.group = group; entry.logo = logo; entry.url = url;
+      }
+    }
+    showEditor();
+    renderGroups();
+    renderStreams();
+    detailStatus.textContent = "Entrada guardada.";
+    detailStatus.className = "detail-status ok";
+  });
+
+  $("#btnDetailDelete").addEventListener("click", () => {
+    if(selectedEntryId === null) return;
+    setEntries(entries.filter(e => e.id !== selectedEntryId));
+    closeDetail();
+    renderGroups();
+    renderStreams();
+  });
+
+  $("#btnDetailValidate").addEventListener("click", async () => {
+    let entry;
+    if(editingIsNew){
+      const url = $("#dUrl").value.trim();
+      if(!url) return;
+      entry = { url, status:"checking" };
+    } else {
+      entry = entries.find(e => e.id === selectedEntryId);
+      if(!entry) return;
+    }
+    detailStatus.textContent = "Validando enlace…";
+    detailStatus.className = "detail-status";
+    const res = await checkUrl(entry.url);
+    if(!editingIsNew){
+      entry.status = res.status;
+      entry.detail = res.detail;
+      renderStreams();
+    }
+    detailStatus.textContent = `${res.status === "live" ? "✓ Vivo" : "✕ Muerto"} — ${res.detail}`;
+    detailStatus.className = "detail-status " + (res.status === "live" ? "ok" : "err");
+  });
+
+  // ---------------- Generic concurrency pool ----------------
+  async function asyncPool(concurrency, items, worker, isStopped){
+    const executing = new Set();
+    for(const item of items){
+      if(isStopped && isStopped()) break;
+      const p = worker(item).then(() => executing.delete(p));
+      executing.add(p);
+      if(executing.size >= concurrency){
+        await Promise.race(executing);
+      }
+    }
+    await Promise.all(executing);
+  }
+
+  // ---------------- Link validation ----------------
+  async function checkUrl(url, timeoutMs = 8000){
+    if(!/^https?:\/\//i.test(url)){
+      return { status: "unknown", detail: "no es una URL http(s)" };
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try{
+      await fetch(url, { method: "GET", mode: "no-cors", cache: "no-store", signal: controller.signal });
+      clearTimeout(timer);
+      return { status: "live", detail: "conexión establecida" };
+    } catch(err){
+      clearTimeout(timer);
+      if(err.name === "AbortError"){
+        return { status: "dead", detail: `sin respuesta en ${timeoutMs/1000}s` };
+      }
+      return { status: "dead", detail: "conexión falló (red, DNS o bloqueo del navegador)" };
+    }
+  }
+
+  async function validateEntry(entry){
+    entry.status = "checking";
+    const res = await checkUrl(entry.url);
+    entry.status = res.status;
+    entry.detail = res.detail;
+    return entry;
+  }
+
+  $("#btnValidateAll").addEventListener("click", async () => {
+    if(validating || entries.length === 0) return;
+    validating = true;
+    stopRequested = false;
+    $("#btnValidateAll").disabled = true;
+    $("#btnStopValidate").style.display = "inline-flex";
+
+    entries.forEach(e => { e.status = "checking"; e.detail = ""; });
+    renderStreams();
+
+    await asyncPool(6, entries, async (entry) => {
+      await validateEntry(entry);
+      renderStreams();
+    }, () => stopRequested);
+
+    validating = false;
+    $("#btnValidateAll").disabled = false;
+    $("#btnStopValidate").style.display = "none";
+  });
+
+  $("#btnStopValidate").addEventListener("click", () => { stopRequested = true; });
+
+  $("#btnRemoveDead").addEventListener("click", () => {
+    setEntries(entries.filter(e => e.status !== "dead"));
+    if(selectedEntryId !== null && !entries.find(e => e.id === selectedEntryId)) closeDetail();
+    renderGroups();
+    renderStreams();
+  });
+
+  // ---------------- TMDB settings panel ---------------
+  $("#btnToggleTmdb").addEventListener("click", () => {
+    tmdbPanel.classList.toggle("open");
+  });
+
+  function getApiKey(){ return $("#tmdbApiKey").value.trim(); }
+
+  function showTmdbBanner(message, kind){
+    tmdbBannerText.textContent = message;
+    tmdbBanner.classList.remove("error");
+    if(kind === "error") tmdbBanner.classList.add("error");
+    tmdbBanner.classList.add("show");
+  }
+  function hideTmdbBanner(){ tmdbBanner.classList.remove("show"); }
+  $("#btnCloseBanner").addEventListener("click", hideTmdbBanner);
+
+  // ---------------- TMDB lookups (nombre en el idioma elegido) ----------------
+  function cleanTitleForSearch(title){
+    return title
+      .replace(/\[[^\]]*\]/g, " ")
+      .replace(/\((?:19|20)\d{2}\)/g, " ")
+      .replace(/\b(4K|UHD|FHD|FULL ?HD|HD|SD|H\.?26[45]|VIP|LATINO|CASTELLANO|SUB|DUAL|MULTI|ESP|ENG)\b/gi, " ")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+  }
+
+  async function tmdbSearchMulti(apiKey, title){
+    const url = `${TMDB_BASE}/search/multi?api_key=${encodeURIComponent(apiKey)}&language=es-ES&include_adult=false&query=${encodeURIComponent(title)}`;
+    const resp = await fetch(url);
+    if(resp.status === 401) throw new Error("API key inválida (401)");
+    if(!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    const results = (data.results || []).filter(r => r.media_type === "movie" || r.media_type === "tv");
+    if(results.length === 0) return null;
+    results.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
+    return results[0];
+  }
+
+  async function tmdbDetailsInLanguage(apiKey, id, mediaType, langCode){
+    const kind = mediaType === "tv" ? "tv" : "movie";
+    const url = `${TMDB_BASE}/${kind}/${id}?api_key=${encodeURIComponent(apiKey)}&language=${encodeURIComponent(langCode)}`;
+    const resp = await fetch(url);
+    if(resp.status === 401) throw new Error("API key inválida (401)");
+    if(!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    return {
+      name: kind === "tv" ? data.name : data.title,
+      posterPath: data.poster_path,
+      genres: (data.genres || []).map(g => g.name).filter(Boolean)
+    };
+  }
+
+  const genreChipsBox = $("#genreChips");
+
+  function renderGenreChips(genres){
+    if(!genres || genres.length === 0){
+      genreChipsBox.style.display = "none";
+      genreChipsBox.innerHTML = "";
+      return;
+    }
+    const currentGroup = $("#dGroup").value.trim();
+    genreChipsBox.innerHTML = `<span class="chip-label">Géneros TMDB (elegí uno como grupo)</span>` +
+      genres.map(name => `<span class="genre-chip ${name === currentGroup ? "chosen" : ""}" data-genre="${escapeAttr(name)}">${escapeHtml(name)}</span>`).join("");
+    genreChipsBox.style.display = "flex";
+  }
+
+  genreChipsBox.addEventListener("click", (ev) => {
+    const chip = ev.target.closest(".genre-chip");
+    if(!chip) return;
+    $("#dGroup").value = chip.dataset.genre;
+    genreChipsBox.querySelectorAll(".genre-chip").forEach(c => c.classList.toggle("chosen", c === chip));
+  });
+
+  $("#btnDetailTmdb").addEventListener("click", async () => {
+    const apiKey = getApiKey();
+    if(!apiKey){
+      tmdbPanel.classList.add("open");
+      showTmdbBanner("Ingresá tu clave de TMDB arriba antes de buscar.", "error");
+      return;
+    }
+    const query = cleanTitleForSearch($("#dTitle").value.trim());
+    if(!query){
+      detailStatus.textContent = "Escribí un título antes de buscar en TMDB.";
+      detailStatus.className = "detail-status err";
+      return;
+    }
+    const langCode = $("#dLang").value;
+    const btn = $("#btnDetailTmdb");
+    btn.disabled = true;
+    posterFrame.classList.add("loading");
+    detailStatus.textContent = `Buscando "${query}" en TMDB…`;
+    detailStatus.className = "detail-status";
+
+    try{
+      const result = await tmdbSearchMulti(apiKey, query);
+      if(!result){
+        detailStatus.textContent = `Sin resultados en TMDB para "${query}".`;
+        detailStatus.className = "detail-status err";
+        renderGenreChips([]);
+        return;
+      }
+      const details = await tmdbDetailsInLanguage(apiKey, result.id, result.media_type, langCode);
+      const translatedName = (details.name && details.name.trim()) ? details.name.trim() : (result.title || result.name);
+      const posterPath = details.posterPath || result.poster_path;
+      const posterUrl = posterPath ? `https://image.tmdb.org/t/p/w500${posterPath}` : "";
+
+      $("#dTitle").value = translatedName;
+      if(posterUrl){
+        $("#dLogo").value = posterUrl;
+        setPoster(posterUrl);
+      }
+      renderGenreChips(details.genres);
+      detailStatus.textContent = `Encontrado: "${translatedName}" (${result.media_type === "tv" ? "serie" : "película"})${details.genres && details.genres.length ? " — elegí el grupo entre los géneros sugeridos abajo." : "."}`;
+      detailStatus.className = "detail-status ok";
+      hideTmdbBanner();
+    } catch(err){
+      detailStatus.textContent = `Error de TMDB: ${err.message}`;
+      detailStatus.className = "detail-status err";
+      renderGenreChips([]);
+      if(/401|inválida/i.test(err.message)){
+        tmdbPanel.classList.add("open");
+        showTmdbBanner(`La clave de TMDB no es válida. Revisala en ⚙ TMDB. (${err.message})`, "error");
+      }
+    } finally {
+      btn.disabled = false;
+      posterFrame.classList.remove("loading");
+    }
+  });
+
+  // ---------------- Listas anidadas ----------------
+  function renderBreadcrumb(){
+    if(nodeStack.length <= 1){
+      breadcrumbBox.classList.remove("show");
+      breadcrumbBox.innerHTML = "";
+      return;
+    }
+    breadcrumbBox.classList.add("show");
+    breadcrumbBox.innerHTML = nodeStack.map((id, i) => {
+      const n = nodes[id];
+      const label = i === 0 ? "🏠 " + escapeHtml(n.name) : escapeHtml(n.name);
+      const sep = i < nodeStack.length - 1 ? `<span class="crumb-sep">›</span>` : "";
+      return `<span class="crumb" data-idx="${i}" title="${escapeAttr(n.name)}">${label}</span>${sep}`;
+    }).join("");
+  }
+
+  breadcrumbBox.addEventListener("click", (ev) => {
+    const crumb = ev.target.closest(".crumb[data-idx]");
+    if(!crumb) return;
+    const idx = Number(crumb.dataset.idx);
+    if(idx === nodeStack.length - 1) return; // ya estamos ahí
+    goToBreadcrumb(idx);
+  });
+
+  function goToBreadcrumb(idx){
+    nodeStack = nodeStack.slice(0, idx + 1);
+    entries = getCurrentNode().entries;
+    selectedGroup = null;
+    closeDetail();
+    renderBreadcrumb();
+    renderGroups();
+    renderStreams();
+  }
+
+  function enterNode(id){
+    nodeStack.push(id);
+    entries = getCurrentNode().entries;
+    selectedGroup = null;
+    closeDetail();
+    renderBreadcrumb();
+    renderGroups();
+    renderStreams();
+  }
+
+  async function tryLoadNestedFromUrl(url){
+    if(!/^https?:\/\//i.test(url)) throw new Error("La URL no es http(s).");
+    const resp = await fetch(url, { method: "GET", cache: "no-store" });
+    if(!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    return await resp.text();
+  }
+
+  function createChildNode(entry, text){
+    const parsed = parseM3U(text);
+    const ext = /\.m3u8(\?|$)/i.test(entry.url) ? ".m3u8" : ".m3u";
+    const node = { id: nextNodeId++, name: entry.title || "Sublista", ext, entries: parsed, parentEntryId: entry.id };
+    nodes[node.id] = node;
+    entry.childNodeId = node.id;
+    return node;
+  }
+
+  async function openNestedEntry(entry){
+    if(entry.childNodeId && nodes[entry.childNodeId]){
+      enterNode(entry.childNodeId);
+      return;
+    }
+    try{
+      const text = await tryLoadNestedFromUrl(entry.url);
+      const node = createChildNode(entry, text);
+      renderStreams(); // refresca el ícono 🗂 → 📂 en la fila
+      enterNode(node.id);
+    } catch(err){
+      openNestedManualModal(entry, `No se pudo cargar automáticamente (${err.message} — probablemente bloqueo CORS del navegador). Pegá el contenido del M3U o subí el archivo.`);
+    }
+  }
+
+  function openNestedManualModal(entry, msg){
+    pendingNestedEntry = entry;
+    nestedModalName.textContent = entry.title || entry.url;
+    nestedModalSub.textContent = msg || "Pegá el contenido del M3U/M3U8 de esta sublista o subí el archivo.";
+    nestedModalText.value = "";
+    nestedModalFile.value = "";
+    nestedModalOverlay.classList.add("show");
+  }
+  function closeNestedModal(){
+    nestedModalOverlay.classList.remove("show");
+    pendingNestedEntry = null;
+  }
+  $("#nestedModalCancel").addEventListener("click", closeNestedModal);
+  nestedModalOverlay.addEventListener("click", (ev) => { if(ev.target === nestedModalOverlay) closeNestedModal(); });
+
+  nestedModalFile.addEventListener("change", () => {
+    const file = nestedModalFile.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = () => { nestedModalText.value = String(reader.result); };
+    reader.readAsText(file);
+  });
+
+  $("#nestedModalRetry").addEventListener("click", async () => {
+    if(!pendingNestedEntry) return;
+    const entry = pendingNestedEntry;
+    nestedModalSub.textContent = "Reintentando carga automática…";
+    try{
+      const text = await tryLoadNestedFromUrl(entry.url);
+      const node = createChildNode(entry, text);
+      closeNestedModal();
+      renderStreams();
+      enterNode(node.id);
+    } catch(err){
+      nestedModalSub.textContent = `Seguí sin poder cargarlo automáticamente (${err.message}). Pegá el contenido o subí el archivo.`;
+    }
+  });
+
+  $("#nestedModalLoad").addEventListener("click", () => {
+    if(!pendingNestedEntry) return;
+    const text = nestedModalText.value;
+    if(!text.trim()){
+      nestedModalSub.textContent = "Pegá contenido M3U o subí un archivo antes de continuar.";
+      return;
+    }
+    const entry = pendingNestedEntry;
+    const node = createChildNode(entry, text);
+    closeNestedModal();
+    renderStreams();
+    enterNode(node.id);
+  });
+
+  // ---------------- File loading (raíz) ----------------
+  function resetToRoot(parsedEntries, ext, name){
+    nodes = {};
+    nodeStack = [];
+    nextNodeId = 1;
+    const root = { id: nextNodeId++, name: name || "Raíz", ext: ext || ".m3u", entries: parsedEntries, parentEntryId: null };
+    nodes[root.id] = root;
+    nodeStack.push(root.id);
+    entries = root.entries;
+    selectedGroup = null;
+  }
+
+  function loadText(text, filename){
+    const ext = /\.m3u8$/i.test(filename || "") ? ".m3u8" : ".m3u";
+    resetToRoot(parseM3U(text), ext, filename || "playlist");
+    closeDetail();
+    showEditor();
+    renderBreadcrumb();
+    renderGroups();
+    renderStreams();
+  }
+
+  function showEditor(){
+    dropzone.style.display = "none";
+    editorArea.style.display = "block";
+  }
+
+  $("#btnOpen").addEventListener("click", () => fileInput.click());
+  $("#btnNew").addEventListener("click", () => {
+    nextId = 1;
+    resetToRoot([], ".m3u", "playlist");
+    closeDetail();
+    showEditor();
+    renderBreadcrumb();
+    renderGroups();
+    renderStreams();
+  });
+
+  fileInput.addEventListener("change", () => {
+    const file = fileInput.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = () => loadText(String(reader.result), file.name);
+    reader.readAsText(file);
+  });
+
+  ["dragover","dragenter"].forEach(evt =>
+    dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.add("drag"); })
+  );
+  ["dragleave","drop"].forEach(evt =>
+    dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.remove("drag"); })
+  );
+  dropzone.addEventListener("drop", (e) => {
+    const file = e.dataTransfer.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = () => loadText(String(reader.result), file.name);
+    reader.readAsText(file);
+  });
+
+  // ---------------- Download ----------------
+  function sanitizeFilename(s){
+    return String(s || "playlist").replace(/\.[mM]3[uU]8?$/, "").replace(/[^a-zA-Z0-9\-_ ]+/g, "_").trim() || "playlist";
+  }
+
+  $("#btnDownload").addEventListener("click", () => {
+    const node = getCurrentNode();
+    const text = buildM3U(entries);
+    const blob = new Blob([text], { type: "audio/x-mpegurl" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = sanitizeFilename(node.name) + node.ext;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  });
+
+})();
+</script>
+</body>
+</html>
