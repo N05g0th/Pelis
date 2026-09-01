@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trama · Semitonos para DTF</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink: #101114;
+    --panel: #17181c;
+    --panel-2: #1c1e23;
+    --paper: #f4f3ef;
+    --cyan: #00AEEF;
+    --magenta: #EC1E79;
+    --yellow: #FFD400;
+    --key: #0e0e10;
+    --text: #EDEBE4;
+    --text-dim: #8d8d92;
+    --line: #2a2c31;
+    --accent: #FFD400;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--ink);
+    color:var(--text);
+    font-family:'Space Grotesk', sans-serif;
+    min-height:100vh;
+  }
+  .mono{ font-family:'IBM Plex Mono', monospace; }
+
+  .app{
+    display:grid;
+    grid-template-columns: 340px 1fr;
+    min-height:100vh;
+  }
+  @media (max-width: 860px){
+    .app{ grid-template-columns: 1fr; }
+  }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar{
+    background:var(--panel);
+    border-right:1px solid var(--line);
+    padding:28px 24px 40px;
+    display:flex;
+    flex-direction:column;
+    gap:26px;
+  }
+  .brand{
+    display:flex;
+    align-items:baseline;
+    gap:10px;
+  }
+  .brand .dots{
+    display:inline-flex;
+    gap:4px;
+  }
+  .brand .dots span{
+    width:9px;height:9px;border-radius:50%;
+    display:inline-block;
+  }
+  .brand .dots span:nth-child(1){background:var(--cyan);}
+  .brand .dots span:nth-child(2){background:var(--magenta);}
+  .brand .dots span:nth-child(3){background:var(--yellow);}
+  .brand h1{
+    font-size:19px;
+    font-weight:600;
+    margin:0;
+    letter-spacing:-0.01em;
+  }
+  .brand p{
+    margin:4px 0 0;
+    font-size:12.5px;
+    color:var(--text-dim);
+    line-height:1.5;
+  }
+
+  .field-group{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    padding-left:12px;
+    border-left:2px solid var(--line);
+  }
+  .field-group.active{ border-left-color: var(--accent); }
+  .field-group h2{
+    font-size:12.5px;
+    font-weight:600;
+    margin:0;
+    color:var(--text);
+  }
+  .field{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+  .field label{
+    display:flex;
+    justify-content:space-between;
+    font-size:12px;
+    color:var(--text-dim);
+  }
+  .field label .val{
+    color:var(--text);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11.5px;
+  }
+  input[type=range]{
+    -webkit-appearance:none;
+    width:100%;
+    height:3px;
+    background:var(--line);
+    border-radius:2px;
+    outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:14px;height:14px;
+    border-radius:50%;
+    background:var(--accent);
+    cursor:pointer;
+    border:2px solid var(--ink);
+  }
+  input[type=number]{
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    color:var(--text);
+    padding:6px 8px;
+    border-radius:4px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    width:100%;
+  }
+  select{
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    color:var(--text);
+    padding:8px 10px;
+    border-radius:4px;
+    font-family:'Space Grotesk', sans-serif;
+    font-size:13px;
+    cursor:pointer;
+  }
+  .seg{
+    display:flex;
+    border:1px solid var(--line);
+    border-radius:6px;
+    overflow:hidden;
+  }
+  .seg button{
+    flex:1;
+    background:var(--panel-2);
+    border:none;
+    color:var(--text-dim);
+    padding:8px 6px;
+    font-family:'Space Grotesk', sans-serif;
+    font-size:12px;
+    cursor:pointer;
+    border-right:1px solid var(--line);
+  }
+  .seg button:last-child{ border-right:none; }
+  .seg button.on{
+    background:var(--accent);
+    color:#151300;
+    font-weight:600;
+  }
+
+  .angle-row{
+    display:grid;
+    grid-template-columns: 16px 1fr 44px;
+    align-items:center;
+    gap:8px;
+  }
+  .angle-row .chip{
+    width:12px;height:12px;border-radius:3px;
+  }
+
+  .upload{
+    border:1px dashed var(--line);
+    border-radius:8px;
+    padding:22px 14px;
+    text-align:center;
+    cursor:pointer;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .upload:hover, .upload.drag{
+    border-color:var(--accent);
+    background:rgba(255,212,0,0.04);
+  }
+  .upload p{
+    margin:0;
+    font-size:12.5px;
+    color:var(--text-dim);
+  }
+  .upload .icon{
+    font-size:20px;
+    margin-bottom:6px;
+    display:block;
+  }
+  input[type=file]{ display:none; }
+
+  .btn{
+    background:var(--accent);
+    color:#151300;
+    border:none;
+    padding:12px 16px;
+    border-radius:6px;
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:600;
+    font-size:13.5px;
+    cursor:pointer;
+    width:100%;
+  }
+  .btn:disabled{
+    background:var(--panel-2);
+    color:var(--text-dim);
+    cursor:not-allowed;
+  }
+  .btn.ghost{
+    background:transparent;
+    border:1px solid var(--line);
+    color:var(--text);
+  }
+  .btn-row{ display:flex; flex-direction:column; gap:8px; }
+
+  /* ---------- Main ---------- */
+  .main{
+    padding:28px 32px 40px;
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+    min-width:0;
+  }
+  .toolbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:12px;
+  }
+  .tabs{
+    display:flex;
+    gap:2px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:3px;
+  }
+  .tabs button{
+    background:transparent;
+    border:none;
+    color:var(--text-dim);
+    padding:7px 16px;
+    border-radius:4px;
+    font-family:'Space Grotesk', sans-serif;
+    font-size:12.5px;
+    cursor:pointer;
+  }
+  .tabs button.on{
+    background:var(--panel-2);
+    color:var(--text);
+  }
+  .readout{
+    display:flex;
+    gap:18px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11.5px;
+    color:var(--text-dim);
+    flex-wrap:wrap;
+  }
+  .readout b{ color:var(--text); font-weight:500; }
+
+  .stage{
+    flex:1;
+    background:
+      linear-gradient(45deg, #1b1c20 25%, transparent 25%),
+      linear-gradient(-45deg, #1b1c20 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #1b1c20 75%),
+      linear-gradient(-45deg, transparent 75%, #1b1c20 75%);
+    background-size:20px 20px;
+    background-position:0 0, 0 10px, 10px -10px, -10px 0px;
+    background-color:#232427;
+    border:1px solid var(--line);
+    border-radius:8px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-height:60vh;
+    overflow:auto;
+    position:relative;
+  }
+  .stage canvas{
+    max-width:100%;
+    max-height:78vh;
+    display:block;
+    box-shadow:0 20px 50px rgba(0,0,0,0.45);
+  }
+  .empty{
+    text-align:center;
+    color:var(--text-dim);
+    font-size:13.5px;
+    max-width:280px;
+    line-height:1.6;
+  }
+  .empty .icon{ font-size:30px; display:block; margin-bottom:10px; }
+
+  .note{
+    font-size:11.5px;
+    color:var(--text-dim);
+    line-height:1.6;
+  }
+  .note b{ color: var(--text); }
+
+  ::-webkit-scrollbar{ width:10px; height:10px; }
+  ::-webkit-scrollbar-thumb{ background:#2c2e33; border-radius:6px; }
+  ::-webkit-scrollbar-track{ background:transparent; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="brand">
+      <span class="dots"><span></span><span></span><span></span></span>
+      <div>
+        <h1>Trama</h1>
+        <p>Convierte imágenes en tramas de semitono listas para separar e imprimir en DTF.</p>
+      </div>
+    </div>
+
+    <div class="upload" id="uploadZone">
+      <span class="icon">⇧</span>
+      <p><strong style="color:var(--text)">Arrastra una imagen</strong><br>o haz clic para seleccionarla</p>
+      <input type="file" id="fileInput" accept="image/*">
+    </div>
+
+    <div class="field-group active">
+      <h2>Modo de salida</h2>
+      <div class="seg" id="modeSeg">
+        <button data-mode="gray" class="on">Escala de gris</button>
+        <button data-mode="cmyk">CMYK</button>
+        <button data-mode="spot">Un color</button>
+      </div>
+      <div class="field" id="spotColorField" style="display:none;">
+        <label>Color de tinta</label>
+        <input type="color" id="spotColor" value="#111111" style="width:100%;height:34px;border:1px solid var(--line);border-radius:4px;background:var(--panel-2);padding:2px;">
+      </div>
+    </div>
+
+    <div class="field-group">
+      <h2>Trama</h2>
+      <div class="field">
+        <label>Forma del punto</label>
+        <select id="shape">
+          <option value="circle">Círculo</option>
+          <option value="diamond">Diamante</option>
+          <option value="square">Cuadrado</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Tamaño de celda <span class="val" id="cellVal">8 px</span></label>
+        <input type="range" id="cellSize" min="3" max="30" value="8">
+      </div>
+      <div class="field">
+        <label>Ganancia de punto <span class="val" id="gainVal">0%</span></label>
+        <input type="range" id="gain" min="-40" max="40" value="0">
+      </div>
+    </div>
+
+    <div class="field-group" id="anglesGroup" style="display:none;">
+      <h2>Ángulos por canal</h2>
+      <div class="angle-row">
+        <span class="chip" style="background:var(--cyan)"></span>
+        <input type="range" id="angC" min="0" max="90" value="15">
+        <span class="mono val" id="angCVal">15°</span>
+      </div>
+      <div class="angle-row">
+        <span class="chip" style="background:var(--magenta)"></span>
+        <input type="range" id="angM" min="0" max="90" value="75">
+        <span class="mono val" id="angMVal">75°</span>
+      </div>
+      <div class="angle-row">
+        <span class="chip" style="background:var(--yellow)"></span>
+        <input type="range" id="angY" min="0" max="90" value="0">
+        <span class="mono val" id="angYVal">0°</span>
+      </div>
+      <div class="angle-row">
+        <span class="chip" style="background:#111"></span>
+        <input type="range" id="angK" min="0" max="90" value="45">
+        <span class="mono val" id="angKVal">45°</span>
+      </div>
+    </div>
+
+    <div class="field-group" id="singleAngleGroup">
+      <h2>Ángulo de trama</h2>
+      <div class="field">
+        <label>Ángulo <span class="val" id="angSVal">45°</span></label>
+        <input type="range" id="angS" min="0" max="90" value="45">
+      </div>
+    </div>
+
+    <div class="field-group">
+      <h2>Película / fondo</h2>
+      <div class="seg" id="bgSeg">
+        <button data-bg="transparent" class="on">Transparente</button>
+        <button data-bg="white">Blanco</button>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn" id="generateBtn" disabled>Generar semitono</button>
+      <button class="btn ghost" id="downloadBtn" disabled>Descargar PNG</button>
+    </div>
+
+    <p class="note">La trama se calcula sobre una copia de trabajo (máx. 1400 px de lado). Para archivos de impresión definitivos, exporta luego a la resolución final en tu software de RIP o edición.</p>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="toolbar">
+      <div class="tabs" id="viewTabs">
+        <button data-view="result" class="on">Semitono</button>
+        <button data-view="original">Original</button>
+      </div>
+      <div class="readout" id="readout"></div>
+    </div>
+
+    <div class="stage" id="stage">
+      <div class="empty" id="emptyState">
+        <span class="icon">◐</span>
+        Sube una imagen para empezar a construir la trama de semitono.
+      </div>
+      <canvas id="canvas" style="display:none;"></canvas>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const uploadZone = document.getElementById('uploadZone');
+  const fileInput = document.getElementById('fileInput');
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const stage = document.getElementById('stage');
+  const emptyState = document.getElementById('emptyState');
+  const generateBtn = document.getElementById('generateBtn');
+  const downloadBtn = document.getElementById('downloadBtn');
+  const readout = document.getElementById('readout');
+  const modeSeg = document.getElementById('modeSeg');
+  const bgSeg = document.getElementById('bgSeg');
+  const anglesGroup = document.getElementById('anglesGroup');
+  const singleAngleGroup = document.getElementById('singleAngleGroup');
+  const spotColorField = document.getElementById('spotColorField');
+  const viewTabs = document.getElementById('viewTabs');
+
+  let srcImage = null;
+  let srcCanvas = document.createElement('canvas');
+  let srcCtx = srcCanvas.getContext('2d');
+  let resultCanvas = document.createElement('canvas');
+  let mode = 'gray';
+  let bgType = 'transparent';
+  let currentView = 'result';
+  const MAX_DIM = 1400;
+
+  function bindRange(id, valId, suffix, cb){
+    const el = document.getElementById(id);
+    const out = document.getElementById(valId);
+    const update = () => { out.textContent = el.value + suffix; if(cb) cb(); };
+    el.addEventListener('input', update);
+    update();
+  }
+  bindRange('cellSize','cellVal',' px');
+  bindRange('gain','gainVal','%');
+  bindRange('angC','angCVal','°');
+  bindRange('angM','angMVal','°');
+  bindRange('angY','angYVal','°');
+  bindRange('angK','angKVal','°');
+  bindRange('angS','angSVal','°');
+
+  // Upload handling
+  uploadZone.addEventListener('click', () => fileInput.click());
+  ['dragenter','dragover'].forEach(evt=>{
+    uploadZone.addEventListener(evt, e=>{ e.preventDefault(); uploadZone.classList.add('drag'); });
+  });
+  ['dragleave','drop'].forEach(evt=>{
+    uploadZone.addEventListener(evt, e=>{ e.preventDefault(); uploadZone.classList.remove('drag'); });
+  });
+  uploadZone.addEventListener('drop', e=>{
+    const f = e.dataTransfer.files[0];
+    if(f) loadFile(f);
+  });
+  fileInput.addEventListener('change', e=>{
+    if(e.target.files[0]) loadFile(e.target.files[0]);
+  });
+
+  function loadFile(file){
+    if(!file.type.startsWith('image/')) return;
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      srcImage = img;
+      let w = img.width, h = img.height;
+      const scale = Math.min(1, MAX_DIM / Math.max(w,h));
+      w = Math.round(w*scale); h = Math.round(h*scale);
+      srcCanvas.width = w; srcCanvas.height = h;
+      srcCtx.clearRect(0,0,w,h);
+      srcCtx.drawImage(img, 0, 0, w, h);
+      generateBtn.disabled = false;
+      emptyState.style.display = 'none';
+      canvas.style.display = 'block';
+      updateReadout(w,h);
+      renderView('original');
+      generate();
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
+  }
+
+  function updateReadout(w,h){
+    const cell = document.getElementById('cellSize').value;
+    readout.innerHTML =
+      `<span><b>${w} × ${h}</b> px</span>` +
+      `<span>celda <b>${cell}px</b></span>` +
+      `<span>modo <b>${modeLabel()}</b></span>`;
+  }
+  function modeLabel(){
+    return mode==='gray' ? 'gris' : mode==='cmyk' ? 'cmyk' : 'un color';
+  }
+
+  // Mode toggle
+  modeSeg.addEventListener('click', e=>{
+    const btn = e.target.closest('button');
+    if(!btn) return;
+    [...modeSeg.children].forEach(b=>b.classList.remove('on'));
+    btn.classList.add('on');
+    mode = btn.dataset.mode;
+    anglesGroup.style.display = mode==='cmyk' ? 'flex' : 'none';
+    singleAngleGroup.style.display = mode==='cmyk' ? 'none' : 'flex';
+    spotColorField.style.display = mode==='spot' ? 'flex' : 'none';
+    if(srcImage) generate();
+  });
+
+  bgSeg.addEventListener('click', e=>{
+    const btn = e.target.closest('button');
+    if(!btn) return;
+    [...bgSeg.children].forEach(b=>b.classList.remove('on'));
+    btn.classList.add('on');
+    bgType = btn.dataset.bg;
+    if(srcImage) generate();
+  });
+
+  viewTabs.addEventListener('click', e=>{
+    const btn = e.target.closest('button');
+    if(!btn) return;
+    [...viewTabs.children].forEach(b=>b.classList.remove('on'));
+    btn.classList.add('on');
+    renderView(btn.dataset.view);
+  });
+
+  function renderView(view){
+    currentView = view;
+    if(view === 'original'){
+      canvas.width = srcCanvas.width;
+      canvas.height = srcCanvas.height;
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.drawImage(srcCanvas,0,0);
+    } else {
+      canvas.width = resultCanvas.width || srcCanvas.width;
+      canvas.height = resultCanvas.height || srcCanvas.height;
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      if(resultCanvas.width) ctx.drawImage(resultCanvas,0,0);
+    }
+  }
+
+  generateBtn.addEventListener('click', generate);
+  ['cellSize','gain','angC','angM','angY','angK','angS','shape'].forEach(id=>{
+    document.getElementById(id).addEventListener('change', ()=>{ if(srcImage) generate(); });
+  });
+
+  function toRad(deg){ return deg * Math.PI/180; }
+
+  function applyGain(v, gainPct){
+    // v: 0..255 ink amount. gain shifts the tonal response.
+    let x = v/255;
+    const g = gainPct/100;
+    if(g>=0){
+      x = x + (1-x)*x*g;
+    } else {
+      x = x + x*(1-x)*g;
+    }
+    return Math.max(0, Math.min(255, x*255));
+  }
+
+  function drawShapePath(path, x, y, r, shape){
+    if(r<=0.15) return;
+    if(shape==='circle'){
+      path.moveTo(x+r, y);
+      path.arc(x, y, r, 0, Math.PI*2);
+    } else if(shape==='square'){
+      path.rect(x-r, y-r, r*2, r*2);
+    } else { // diamond
+      path.moveTo(x, y-r);
+      path.lineTo(x+r, y);
+      path.lineTo(x, y+r);
+      path.lineTo(x-r, y);
+      path.closePath();
+    }
+  }
+
+  function drawHalftoneLayer(destCtx, width, height, cellSize, angleDeg, valueFn, colorCss, shape, blend){
+    const angle = toRad(angleDeg);
+    const cos = Math.cos(angle), sin = Math.sin(angle);
+    const cx = width/2, cy = height/2;
+    const diag = Math.sqrt(width*width + height*height);
+    const range = Math.ceil(diag / (2*cellSize)) + 1;
+    const path = new Path2D();
+
+    for(let j=-range; j<=range; j++){
+      const gy = j*cellSize;
+      for(let i=-range; i<=range; i++){
+        const gx = i*cellSize;
+        const x = gx*cos - gy*sin + cx;
+        const y = gx*sin + gy*cos + cy;
+        if(x < -cellSize || x > width+cellSize || y < -cellSize || y > height+cellSize) continue;
+        const sx = Math.max(0, Math.min(width-1, Math.round(x)));
+        const sy = Math.max(0, Math.min(height-1, Math.round(y)));
+        const val = valueFn(sx, sy);
+        if(val <= 2) continue;
+        const darkness = val/255;
+        const maxR = cellSize*0.5*1.12;
+        const r = maxR*Math.sqrt(darkness);
+        drawShapePath(path, x, y, r, shape);
+      }
+    }
+    destCtx.save();
+    destCtx.globalCompositeOperation = blend;
+    destCtx.fillStyle = colorCss;
+    destCtx.fill(path);
+    destCtx.restore();
+  }
+
+  function generate(){
+    if(!srcImage) return;
+    const w = srcCanvas.width, h = srcCanvas.height;
+    const data = srcCtx.getImageData(0,0,w,h).data;
+    const cellSize = parseInt(document.getElementById('cellSize').value,10);
+    const gain = parseFloat(document.getElementById('gain').value);
+    const shape = document.getElementById('shape').value;
+
+    resultCanvas.width = w;
+    resultCanvas.height = h;
+    const rctx = resultCanvas.getContext('2d');
+    rctx.clearRect(0,0,w,h);
+
+    if(bgType === 'white'){
+      rctx.fillStyle = '#ffffff';
+      rctx.fillRect(0,0,w,h);
+    }
+
+    function px(x,y){ const i=(y*w+x)*4; return [data[i],data[i+1],data[i+2]]; }
+
+    if(mode === 'gray' || mode === 'spot'){
+      const angle = parseFloat(document.getElementById('angS').value);
+      const inkColor = mode === 'spot' ? document.getElementById('spotColor').value : '#0a0a0a';
+      const valueFn = (x,y) => {
+        const [r,g,b] = px(x,y);
+        const lum = 0.299*r + 0.587*g + 0.114*b;
+        return applyGain(255 - lum, gain);
+      };
+      drawHalftoneLayer(rctx, w, h, cellSize, angle, valueFn, inkColor, shape, bgType==='white' ? 'multiply' : 'source-over');
+    } else {
+      const angC = parseFloat(document.getElementById('angC').value);
+      const angM = parseFloat(document.getElementById('angM').value);
+      const angY = parseFloat(document.getElementById('angY').value);
+      const angK = parseFloat(document.getElementById('angK').value);
+
+      const cFn = (x,y) => { const [r,g,b]=px(x,y); const c=255-r,m=255-g,ye=255-b; const k=Math.min(c,m,ye); return applyGain(k>=255?0:(c-k)/(255-k||1)*255, gain); };
+      const mFn = (x,y) => { const [r,g,b]=px(x,y); const c=255-r,m=255-g,ye=255-b; const k=Math.min(c,m,ye); return applyGain(k>=255?0:(m-k)/(255-k||1)*255, gain); };
+      const yFn = (x,y) => { const [r,g,b]=px(x,y); const c=255-r,m=255-g,ye=255-b; const k=Math.min(c,m,ye); return applyGain(k>=255?0:(ye-k)/(255-k||1)*255, gain); };
+      const kFn = (x,y) => { const [r,g,b]=px(x,y); const c=255-r,m=255-g,ye=255-b; const k=Math.min(c,m,ye); return applyGain(k, gain); };
+
+      const blend = 'multiply';
+      drawHalftoneLayer(rctx, w, h, cellSize, angC, cFn, 'rgb(0,174,239)', shape, blend);
+      drawHalftoneLayer(rctx, w, h, cellSize, angM, mFn, 'rgb(236,30,121)', shape, blend);
+      drawHalftoneLayer(rctx, w, h, cellSize, angY, yFn, 'rgb(255,212,0)', shape, blend);
+      drawHalftoneLayer(rctx, w, h, cellSize, angK, kFn, 'rgb(15,15,16)', shape, blend);
+    }
+
+    downloadBtn.disabled = false;
+    updateReadout(w,h);
+    if(currentView === 'result'){
+      renderView('result');
+    } else {
+      [...viewTabs.children].forEach(b=>b.classList.remove('on'));
+      viewTabs.querySelector('[data-view="result"]').classList.add('on');
+      renderView('result');
+    }
+  }
+
+  downloadBtn.addEventListener('click', ()=>{
+    const link = document.createElement('a');
+    link.download = 'semitono-dtf.png';
+    link.href = resultCanvas.toDataURL('image/png');
+    link.click();
+  });
+
+})();
+</script>
+</body>
+</html>
