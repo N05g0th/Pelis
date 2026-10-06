@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mi catálogo</title>
+<style>
+:root{--bg:#0f1720;--panel:#18222e;--line:#263444;--txt:#e6edf3;--mute:#8b9bab;--acc:#3ddbb0}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{display:flex;gap:1rem;align-items:center;flex-wrap:wrap;padding:1rem 1.25rem;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:5}
+h1{margin:0;font-size:1.35rem;letter-spacing:-.01em;cursor:pointer}
+.bus{margin-left:auto;display:flex;gap:.5rem}
+input[type=search],input[type=url]{background:var(--panel);border:1px solid var(--line);color:var(--txt);padding:.5rem .8rem;border-radius:8px;min-width:200px;font:inherit}
+button{background:var(--acc);color:#04201a;border:0;border-radius:8px;padding:.5rem 1rem;font:inherit;font-weight:600;cursor:pointer}
+button.sec{background:var(--panel);color:var(--txt);border:1px solid var(--line)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+#grupos{display:flex;gap:.5rem;overflow-x:auto;padding:.75rem 1.25rem;border-bottom:1px solid var(--line)}
+#grupos button{background:none;color:var(--mute);border:1px solid var(--line);border-radius:99px;padding:.3rem .8rem;font-size:.9rem;font-weight:400;white-space:nowrap}
+#grupos button.on,#grupos button:hover{color:var(--txt);border-color:var(--acc)}
+main{padding:1.25rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:1rem}
+.card{background:var(--panel);padding:0;text-align:left;color:inherit;border-radius:10px;overflow:hidden;font-weight:400;border:0}
+.poster{aspect-ratio:2/3;background:#223142;display:grid;place-items:center;font-size:2.5rem;font-weight:700;color:var(--mute);position:relative}
+.poster img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.card .t{display:block;padding:.5rem .6rem;font-size:.85rem;line-height:1.3}
+.msg{padding:3rem 1rem;text-align:center;color:var(--mute)}
+.msg .bus{margin:1rem auto 0;justify-content:center;flex-wrap:wrap}
+.pag{display:flex;gap:1rem;justify-content:center;align-items:center;margin:1.5rem 0;color:var(--mute)}
+dialog{border:0;padding:0;background:#000;width:min(960px,96vw);border-radius:12px;overflow:hidden}
+dialog::backdrop{background:rgba(0,0,0,.75)}
+.bar{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.6rem 1rem;background:var(--panel);color:var(--txt)}
+dialog video{width:100%;max-height:75vh;display:block;background:#000}
+#err{padding:.5rem 1rem;color:#ffb4a8;font-size:.9rem;display:none;background:var(--panel)}
+</style>
+</head>
+<body>
+<header>
+  <h1 id="titulo"></h1>
+  <div class="bus">
+    <input type="search" id="q" placeholder="Buscar título" aria-label="Buscar título">
+  </div>
+</header>
+<nav id="grupos" aria-label="Categorías"></nav>
+<main id="main"></main>
+
+<dialog id="player">
+  <div class="bar"><strong id="pt"></strong><button id="cerrar" type="button">Cerrar</button></div>
+  <video id="v" controls playsinline></video>
+  <div id="err"></div>
+</dialog>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.13/hls.min.js"></script>
+<script>
+// ===== Configuración =====
+const CONFIG = {
+  titulo: 'Mi catálogo',
+  // URL de TU lista M3U/M3U8 (debe permitir CORS). Usa solo contenido que tengas derecho a reproducir.
+  playlist: 'https://raw.githubusercontent.com/N05g0th/Media/refs/heads/main/Peliculas.m3u',
+  porPagina: 48,
+};
+// =========================
+
+const $ = id => document.getElementById(id);
+const st = { items: [], grupo: '', q: '', pag: 1 };
+$('titulo').textContent = document.title = CONFIG.titulo;
+
+function parsear(txt) {
+  const out = []; let meta = null;
+  for (let l of txt.replace(/^\uFEFF/, '').split(/\r?\n/)) {
+    l = l.trim();
+    if (!l || l === '#EXTM3U') continue;
+    if (l.startsWith('#EXTINF')) {
+      const g = l.match(/group-title="([^"]*)"/i), lg = l.match(/tvg-logo="([^"]*)"/i);
+      meta = { nombre: l.slice(l.lastIndexOf(',') + 1).trim(), grupo: (g && g[1]) || 'General', logo: lg ? lg[1] : '' };
+    } else if (l[0] !== '#' && meta) {
+      if (/^https?:\/\//i.test(l)) out.push({ ...meta, url: l });
+      meta = null;
+    }
+  }
+  return out;
+}
+
+function cargarTexto(txt) {
+  st.items = parsear(txt); st.grupo = ''; st.q = ''; st.pag = 1; $('q').value = '';
+  if (!st.items.length) return pedirLista('No se encontraron títulos en esa lista.');
+  render();
+}
+
+async function cargarUrl(url) {
+  $('main').innerHTML = '<p class="msg">Cargando lista…</p>';
+  try {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(r.status);
+    cargarTexto(await r.text());
+  } catch (e) {
+    pedirLista('No se pudo cargar la lista. Verifica la URL y que el servidor permita CORS.');
+  }
+}
+
+function pedirLista(aviso) {
+  $('grupos').innerHTML = '';
+  const m = $('main'); m.innerHTML = '';
+  const p = document.createElement('div'); p.className = 'msg';
+  const t = document.createElement('p'); t.textContent = aviso;
+  const b = document.createElement('button'); b.textContent = 'Reintentar';
+  b.onclick = () => cargarUrl(CONFIG.playlist);
+  p.append(t, b); m.append(p);
+}
+
+function filtrados() {
+  const q = st.q.toLowerCase();
+  return st.items.filter(i => (!st.grupo || i.grupo === st.grupo) && (!q || i.nombre.toLowerCase().includes(q)));
+}
+
+function render() {
+  // categorías
+  const cuenta = {};
+  st.items.forEach(i => cuenta[i.grupo] = (cuenta[i.grupo] || 0) + 1);
+  const nav = $('grupos'); nav.innerHTML = '';
+  const btn = (txt, g) => {
+    const b = document.createElement('button'); b.textContent = txt;
+    if (st.grupo === g) b.className = 'on';
+    b.onclick = () => { st.grupo = g; st.pag = 1; render(); };
+    nav.append(b);
+  };
+  btn(`Todos (${st.items.length})`, '');
+  Object.keys(cuenta).sort((a, b) => a.localeCompare(b, 'es')).forEach(g => btn(`${g} (${cuenta[g]})`, g));
+
+  // cuadrícula
+  const lista = filtrados(), pp = CONFIG.porPagina, paginas = Math.max(1, Math.ceil(lista.length / pp));
+  st.pag = Math.min(st.pag, paginas);
+  const main = $('main'); main.innerHTML = '';
+  if (!lista.length) { main.innerHTML = '<p class="msg">Sin resultados.</p>'; return; }
+  const grid = document.createElement('div'); grid.className = 'grid';
+  lista.slice((st.pag - 1) * pp, st.pag * pp).forEach(i => {
+    const c = document.createElement('button'); c.className = 'card';
+    const p = document.createElement('div'); p.className = 'poster';
+    p.textContent = (i.nombre[0] || '?').toUpperCase();
+    if (i.logo) {
+      const im = document.createElement('img'); im.src = i.logo; im.alt = ''; im.loading = 'lazy';
+      im.referrerPolicy = 'no-referrer'; im.onerror = () => im.remove(); p.append(im);
+    }
+    const t = document.createElement('span'); t.className = 't'; t.textContent = i.nombre;
+    c.append(p, t); c.onclick = () => reproducir(i.url, i.nombre); grid.append(c);
+  });
+  main.append(grid);
+  if (paginas > 1) {
+    const pg = document.createElement('div'); pg.className = 'pag';
+    const mk = (txt, d) => { const b = document.createElement('button'); b.className = 'sec'; b.textContent = txt;
+      b.onclick = () => { st.pag += d; render(); scrollTo(0, 0); }; return b; };
+    const s = document.createElement('span'); s.textContent = `Página ${st.pag} de ${paginas}`;
+    pg.append(...(st.pag > 1 ? [mk('Anterior', -1)] : []), s, ...(st.pag < paginas ? [mk('Siguiente', 1)] : []));
+    main.append(pg);
+  }
+}
+
+// ===== Reproductor =====
+const dlg = $('player'), v = $('v'), err = $('err');
+let hls;
+function parar() { if (hls) { hls.destroy(); hls = null; } v.pause(); v.removeAttribute('src'); v.load(); }
+function fallo() { err.textContent = 'No se pudo reproducir este título. Revisa que el enlace siga activo y use HTTPS si tu sitio usa HTTPS.'; err.style.display = 'block'; }
+function reproducir(url, titulo) {
+  parar(); err.style.display = 'none'; $('pt').textContent = titulo; dlg.showModal();
+  if (/\.m3u8(\?|$)/i.test(url) && window.Hls && Hls.isSupported()) {
+    hls = new Hls(); hls.loadSource(url); hls.attachMedia(v);
+    hls.on(Hls.Events.ERROR, (_, d) => d.fatal && fallo());
+  } else v.src = url;
+  v.play().catch(() => {});
+}
+v.addEventListener('error', fallo);
+$('cerrar').onclick = () => dlg.close();
+dlg.addEventListener('close', parar);
+dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+
+$('q').addEventListener('input', e => { st.q = e.target.value; st.pag = 1; if (st.items.length) render(); });
+$('titulo').onclick = () => { st.grupo = ''; st.q = ''; st.pag = 1; $('q').value = ''; st.items.length && render(); };
+
+cargarUrl(CONFIG.playlist);
+</script>
+</body>
+</html>
