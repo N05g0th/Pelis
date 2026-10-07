@@ -10,43 +10,52 @@
 body{margin:0;background:var(--bg);color:var(--txt);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
 header{display:flex;gap:1rem;align-items:center;flex-wrap:wrap;padding:1rem 1.25rem;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:5}
 h1{margin:0;font-size:1.35rem;letter-spacing:-.01em;cursor:pointer}
-.bus{margin-left:auto;display:flex;gap:.5rem}
-input[type=search],input[type=url]{background:var(--panel);border:1px solid var(--line);color:var(--txt);padding:.5rem .8rem;border-radius:8px;min-width:200px;font:inherit}
+.bus{margin-left:auto}
+input[type=search]{background:var(--panel);border:1px solid var(--line);color:var(--txt);padding:.5rem .8rem;border-radius:8px;min-width:200px;font:inherit}
 button{background:var(--acc);color:#04201a;border:0;border-radius:8px;padding:.5rem 1rem;font:inherit;font-weight:600;cursor:pointer}
 button.sec{background:var(--panel);color:var(--txt);border:1px solid var(--line)}
-button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 #grupos{display:flex;gap:.5rem;overflow-x:auto;padding:.75rem 1.25rem;border-bottom:1px solid var(--line)}
 #grupos button{background:none;color:var(--mute);border:1px solid var(--line);border-radius:99px;padding:.3rem .8rem;font-size:.9rem;font-weight:400;white-space:nowrap}
 #grupos button.on,#grupos button:hover{color:var(--txt);border-color:var(--acc)}
 main{padding:1.25rem}
+section{margin-bottom:2rem}
+h2{font-size:1.1rem;margin:0 0 .75rem;display:flex;align-items:baseline;gap:.75rem}
+h2 .mas{background:none;color:var(--acc);padding:0;font-size:.85rem;font-weight:400}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:1rem}
 .card{background:var(--panel);padding:0;text-align:left;color:inherit;border-radius:10px;overflow:hidden;font-weight:400;border:0}
-.poster{aspect-ratio:2/3;background:#223142;display:grid;place-items:center;font-size:2.5rem;font-weight:700;color:var(--mute);position:relative}
+.poster{aspect-ratio:2/3;background:#223142;position:relative}
 .poster img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .card .t{display:block;padding:.5rem .6rem;font-size:.85rem;line-height:1.3}
 .msg{padding:3rem 1rem;text-align:center;color:var(--mute)}
-.msg .bus{margin:1rem auto 0;justify-content:center;flex-wrap:wrap}
 .pag{display:flex;gap:1rem;justify-content:center;align-items:center;margin:1.5rem 0;color:var(--mute)}
+.tmdb{text-align:center;color:var(--mute);font-size:.75rem;padding:1rem}
 dialog{border:0;padding:0;background:#000;width:min(960px,96vw);border-radius:12px;overflow:hidden}
 dialog::backdrop{background:rgba(0,0,0,.75)}
 .bar{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.6rem 1rem;background:var(--panel);color:var(--txt)}
 dialog video{width:100%;max-height:75vh;display:block;background:#000}
+.opts{display:flex;gap:1rem;flex-wrap:wrap;padding:.6rem 1rem;background:var(--panel);color:var(--txt);font-size:.9rem}
+.opts[hidden],.opts label[hidden]{display:none}
+.opts select{background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:.25rem .5rem;margin-left:.4rem;font:inherit}
 #err{padding:.5rem 1rem;color:#ffb4a8;font-size:.9rem;display:none;background:var(--panel)}
 </style>
 </head>
 <body>
 <header>
   <h1 id="titulo"></h1>
-  <div class="bus">
-    <input type="search" id="q" placeholder="Buscar título" aria-label="Buscar título">
-  </div>
+  <div class="bus"><input type="search" id="q" placeholder="Buscar título" aria-label="Buscar título"></div>
 </header>
 <nav id="grupos" aria-label="Categorías"></nav>
 <main id="main"></main>
+<footer id="pie" class="tmdb" hidden>Este producto usa la API de TMDB pero no está respaldado ni certificado por TMDB.</footer>
 
 <dialog id="player">
   <div class="bar"><strong id="pt"></strong><button id="cerrar" type="button">Cerrar</button></div>
   <video id="v" controls playsinline></video>
+  <div id="opts" class="opts" hidden>
+    <label>Audio <select id="selA"></select></label>
+    <label>Subtítulos <select id="selS"></select></label>
+  </div>
   <div id="err"></div>
 </dialog>
 
@@ -55,15 +64,25 @@ dialog video{width:100%;max-height:75vh;display:block;background:#000}
 // ===== Configuración =====
 const CONFIG = {
   titulo: 'Mi catálogo',
-  // URL de TU lista M3U/M3U8 (debe permitir CORS). Usa solo contenido que tengas derecho a reproducir.
-  playlist: 'https://raw.githubusercontent.com/N05g0th/Media/refs/heads/main/Peliculas.m3u',
-  porPagina: 48,
+  playlist: 'https://raw.githubusercontent.com/N05g0th/Media/refs/heads/main/Peliculas.m3u',   // URL de tu lista M3U/M3U8 (debe permitir CORS)
+  porPagina: 48,                      // títulos por página al filtrar o buscar
+  estrenos: 6,                        // estrenos al inicio
+  porGenero: 6,                       // títulos al azar por género en la portada
+  tmdbKey: '6f6ac958e9e94c4c42371ebba58f4e00', // vacía para desactivar TMDB
+  tmdbMax: 20,                        // consultas nuevas a TMDB por visita (se guardan en caché local)
 };
 // =========================
 
 const $ = id => document.getElementById(id);
-const st = { items: [], grupo: '', q: '', pag: 1 };
+const st = { items: [], grupo: '', q: '', pag: 1, estrenos: [], por: {} };
 $('titulo').textContent = document.title = CONFIG.titulo;
+$('pie').hidden = !CONFIG.tmdbKey;
+
+// ---------- Lista ----------
+const limpiar = n => n.replace(/[\(\[\{].*?[\)\]\}]/g, ' ')
+  .replace(/\b(4K|UHD|2160p|1080p|720p|480p|HD|FHD|DUAL|LATINO|CASTELLANO|SUB|WEB-?DL|BluRay|HDRip|DVDRip|x26[45])\b/gi, ' ')
+  .replace(/\s+/g, ' ').replace(/^[\s\-–._]+|[\s\-–._]+$/g, '');
+const clave = i => limpiar(i.nombre).toLowerCase() || i.url;
 
 function parsear(txt) {
   const out = []; let meta = null;
@@ -71,8 +90,15 @@ function parsear(txt) {
     l = l.trim();
     if (!l || l === '#EXTM3U') continue;
     if (l.startsWith('#EXTINF')) {
-      const g = l.match(/group-title="([^"]*)"/i), lg = l.match(/tvg-logo="([^"]*)"/i);
-      meta = { nombre: l.slice(l.lastIndexOf(',') + 1).trim(), grupo: (g && g[1]) || 'General', logo: lg ? lg[1] : '' };
+      const g = l.match(/group-title="([^"]*)"/i), lg = l.match(/tvg-logo="([^"]*)"/i),
+            sb = l.match(/subs="([^"]*)"/i), fe = l.match(/fecha="(\d{4}(?:-\d{2}-\d{2})?)"/i);
+      meta = { nombre: l.slice(l.lastIndexOf(',') + 1).trim(), grupo: (g && g[1]) || 'General',
+               logo: lg ? lg[1] : '', subs: sb ? sb[1] : '', fecha: '' };
+      if (fe) meta.fecha = fe[1];
+      else {
+        const p = meta.nombre.match(/\((?:19|20)\d{2}\)/), a = meta.nombre.match(/\b(?:19|20)\d{2}\b/g);
+        meta.fecha = p ? p[0].slice(1, -1) : (a ? a[a.length - 1] : '');
+      }
     } else if (l[0] !== '#' && meta) {
       if (/^https?:\/\//i.test(l)) out.push({ ...meta, url: l });
       meta = null;
@@ -81,42 +107,114 @@ function parsear(txt) {
   return out;
 }
 
-function cargarTexto(txt) {
-  st.items = parsear(txt); st.grupo = ''; st.q = ''; st.pag = 1; $('q').value = '';
-  if (!st.items.length) return pedirLista('No se encontraron títulos en esa lista.');
-  render();
+// ---------- TMDB: fecha de estreno y carátula ----------
+async function enriquecer() {
+  if (!CONFIG.tmdbKey) return;
+  const CK = 'tmdb_cache_v1'; let cache = {};
+  try { cache = JSON.parse(localStorage.getItem(CK)) || {}; } catch (e) {}
+  const minAnio = new Date().getFullYear() - 1; let quedan = CONFIG.tmdbMax; const pend = new Map();
+  for (let k = st.items.length - 1; k >= 0; k--) {
+    const it = st.items[k];
+    if (it.fecha.length === 10) continue;                      // fecha exacta ya indicada
+    if (it.fecha && +it.fecha < minAnio) continue;             // título antiguo
+    const t = limpiar(it.nombre); if (!t) continue;
+    it.ck = t.toLowerCase() + '|' + it.fecha;
+    if (!cache[it.ck] && !pend.has(it.ck) && quedan > 0) { quedan--; pend.set(it.ck, [t, it.fecha]); }
+  }
+  await Promise.all([...pend].map(async ([ck, [t, anio]]) => {
+    try {
+      const p = new URLSearchParams({ api_key: CONFIG.tmdbKey, query: t, language: 'es-MX', include_adult: 'false' });
+      if (anio) p.set('primary_release_year', anio);
+      const r = await fetch('https://api.themoviedb.org/3/search/movie?' + p);
+      if (!r.ok) return;
+      const d = (await r.json()).results?.[0];
+      cache[ck] = { fecha: d?.release_date || '', poster: d?.poster_path || '' };
+    } catch (e) {}
+  }));
+  try { localStorage.setItem(CK, JSON.stringify(cache)); } catch (e) {}
+  st.items.forEach(it => {
+    const c = it.ck && cache[it.ck]; if (!c) return;
+    if (c.fecha) it.fecha = c.fecha;
+    if (!it.logo && c.poster) it.logo = 'https://image.tmdb.org/t/p/w342' + c.poster;
+  });
 }
 
+// ---------- Portada: estrenos y selección al azar ----------
+function calcEstrenos() {
+  const hoy = new Date().toISOString().slice(0, 10), anio = new Date().getFullYear();
+  const ord = i => i.fecha.length === 4 ? i.fecha + '-00-00' : i.fecha;
+  const c = st.items.map((i, pos) => ({ ...i, pos }))
+    .filter(i => i.fecha && (i.fecha.length === 10 ? i.fecha <= hoy : +i.fecha <= anio))
+    .sort((a, b) => ord(b).localeCompare(ord(a)) || b.pos - a.pos);
+  const vistos = new Set(), out = [];
+  for (const i of c) {
+    const k = clave(i); if (vistos.has(k)) continue;
+    vistos.add(k); out.push(i); if (out.length >= CONFIG.estrenos) break;
+  }
+  return out;
+}
+function mezclar() {
+  const enE = new Set(st.estrenos.map(clave)), arr = [...st.items], por = {};
+  for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; }
+  for (const i of arr) {
+    const k = clave(i); if (enE.has(k)) continue;
+    const g = (por[i.grupo] ||= new Map());
+    if (!g.has(k) && g.size < CONFIG.porGenero) g.set(k, i);
+  }
+  st.por = por;
+}
+
+// ---------- Carga ----------
 async function cargarUrl(url) {
-  $('main').innerHTML = '<p class="msg">Cargando lista…</p>';
+  $('grupos').innerHTML = '';
+  $('main').innerHTML = '<p class="msg">Cargando catálogo…</p>';
   try {
     const r = await fetch(url);
     if (!r.ok) throw new Error(r.status);
-    cargarTexto(await r.text());
+    st.items = parsear(await r.text());
+    if (!st.items.length) throw new Error('vacía');
+    await enriquecer();
+    st.estrenos = calcEstrenos(); mezclar();
+    render();
   } catch (e) {
-    pedirLista('No se pudo cargar la lista. Verifica la URL y que el servidor permita CORS.');
+    const m = $('main'); m.innerHTML = '';
+    const p = document.createElement('div'); p.className = 'msg';
+    const t = document.createElement('p'); t.textContent = 'No se pudo cargar la lista. Verifica la URL y que el servidor permita CORS.';
+    const b = document.createElement('button'); b.textContent = 'Reintentar'; b.onclick = () => cargarUrl(CONFIG.playlist);
+    p.append(t, b); m.append(p);
   }
 }
 
-function pedirLista(aviso) {
-  $('grupos').innerHTML = '';
-  const m = $('main'); m.innerHTML = '';
-  const p = document.createElement('div'); p.className = 'msg';
-  const t = document.createElement('p'); t.textContent = aviso;
-  const b = document.createElement('button'); b.textContent = 'Reintentar';
-  b.onclick = () => cargarUrl(CONFIG.playlist);
-  p.append(t, b); m.append(p);
+// ---------- Render ----------
+function tarjeta(i) {
+  const c = document.createElement('button'); c.className = 'card';
+  const p = document.createElement('div'); p.className = 'poster';
+  if (i.logo) {
+    const im = document.createElement('img'); im.src = i.logo; im.alt = ''; im.loading = 'lazy';
+    im.referrerPolicy = 'no-referrer'; im.onerror = () => im.remove(); p.append(im);
+  }
+  const t = document.createElement('span'); t.className = 't'; t.textContent = i.nombre;
+  c.append(p, t); c.onclick = () => reproducir(i.url, i.nombre, i.subs);
+  return c;
 }
-
+function seccion(titulo, lista, verTodos) {
+  const s = document.createElement('section'), h = document.createElement('h2'), g = document.createElement('div');
+  h.textContent = titulo; g.className = 'grid';
+  if (verTodos) {
+    const b = document.createElement('button'); b.className = 'mas'; b.textContent = verTodos.txt;
+    b.onclick = () => { st.grupo = verTodos.g; st.pag = 1; render(); scrollTo(0, 0); }; h.append(b);
+  }
+  lista.forEach(i => g.append(tarjeta(i))); s.append(h, g);
+  return s;
+}
 function filtrados() {
   const q = st.q.toLowerCase();
   return st.items.filter(i => (!st.grupo || i.grupo === st.grupo) && (!q || i.nombre.toLowerCase().includes(q)));
 }
-
 function render() {
-  // categorías
   const cuenta = {};
   st.items.forEach(i => cuenta[i.grupo] = (cuenta[i.grupo] || 0) + 1);
+  const nombres = Object.keys(cuenta).sort((a, b) => a.localeCompare(b, 'es'));
   const nav = $('grupos'); nav.innerHTML = '';
   const btn = (txt, g) => {
     const b = document.createElement('button'); b.textContent = txt;
@@ -125,25 +223,20 @@ function render() {
     nav.append(b);
   };
   btn(`Todos (${st.items.length})`, '');
-  Object.keys(cuenta).sort((a, b) => a.localeCompare(b, 'es')).forEach(g => btn(`${g} (${cuenta[g]})`, g));
+  nombres.forEach(g => btn(`${g} (${cuenta[g]})`, g));
 
-  // cuadrícula
+  const main = $('main'); main.innerHTML = '';
+  if (!st.grupo && !st.q) {   // portada
+    if (st.estrenos.length) main.append(seccion('Estrenos', st.estrenos));
+    nombres.filter(g => st.por[g]).forEach(g =>
+      main.append(seccion(g, [...st.por[g].values()], { txt: `Ver todos (${cuenta[g]})`, g })));
+    return;
+  }
   const lista = filtrados(), pp = CONFIG.porPagina, paginas = Math.max(1, Math.ceil(lista.length / pp));
   st.pag = Math.min(st.pag, paginas);
-  const main = $('main'); main.innerHTML = '';
   if (!lista.length) { main.innerHTML = '<p class="msg">Sin resultados.</p>'; return; }
   const grid = document.createElement('div'); grid.className = 'grid';
-  lista.slice((st.pag - 1) * pp, st.pag * pp).forEach(i => {
-    const c = document.createElement('button'); c.className = 'card';
-    const p = document.createElement('div'); p.className = 'poster';
-    p.textContent = (i.nombre[0] || '?').toUpperCase();
-    if (i.logo) {
-      const im = document.createElement('img'); im.src = i.logo; im.alt = ''; im.loading = 'lazy';
-      im.referrerPolicy = 'no-referrer'; im.onerror = () => im.remove(); p.append(im);
-    }
-    const t = document.createElement('span'); t.className = 't'; t.textContent = i.nombre;
-    c.append(p, t); c.onclick = () => reproducir(i.url, i.nombre); grid.append(c);
-  });
+  lista.slice((st.pag - 1) * pp, st.pag * pp).forEach(i => grid.append(tarjeta(i)));
   main.append(grid);
   if (paginas > 1) {
     const pg = document.createElement('div'); pg.className = 'pag';
@@ -155,27 +248,90 @@ function render() {
   }
 }
 
-// ===== Reproductor =====
-const dlg = $('player'), v = $('v'), err = $('err');
-let hls;
-function parar() { if (hls) { hls.destroy(); hls = null; } v.pause(); v.removeAttribute('src'); v.load(); }
+// ---------- Reproductor con audio y subtítulos ----------
+const dlg = $('player'), v = $('v'), err = $('err'), selA = $('selA'), selS = $('selS'), opts = $('opts');
+let hls, sesion = 0;
+const idioma = c => { try { return new Intl.DisplayNames(['es'], { type: 'language' }).of(c); } catch (e) { return c; } };
+function llenar(sel, items, actual) {
+  sel.innerHTML = '';
+  items.forEach(([val, txt]) => { const o = document.createElement('option'); o.value = val; o.textContent = txt; sel.append(o); });
+  sel.value = String(actual);
+}
+function mostrar() {
+  selA.parentElement.hidden = selA.options.length < 2;
+  selS.parentElement.hidden = selS.options.length < 2;
+  opts.hidden = selA.parentElement.hidden && selS.parentElement.hidden;
+}
+function parar() {
+  sesion++;
+  if (hls) { hls.destroy(); hls = null; }
+  v.pause(); v.removeAttribute('src');
+  v.querySelectorAll('track').forEach(t => { URL.revokeObjectURL(t.src); t.remove(); });
+  v.load(); llenar(selA, [], 0); llenar(selS, [], 0); mostrar();
+}
 function fallo() { err.textContent = 'No se pudo reproducir este título. Revisa que el enlace siga activo y use HTTPS si tu sitio usa HTTPS.'; err.style.display = 'block'; }
-function reproducir(url, titulo) {
+
+const subsNativos = () => [...v.textTracks].filter(t => t.kind === 'subtitles' || t.kind === 'captions');
+function nativo() {
+  if (hls) return;
+  const A = v.audioTracks ? [...v.audioTracks] : [];
+  llenar(selA, A.length > 1 ? A.map((t, i) => [i, t.label || idioma(t.language) || 'Audio ' + (i + 1)]) : [], A.findIndex(t => t.enabled));
+  const T = subsNativos();
+  llenar(selS, [[-1, 'Desactivados'], ...T.map((t, i) => [i, t.label || idioma(t.language) || 'Subtítulo ' + (i + 1)])], T.findIndex(t => t.mode === 'showing'));
+  mostrar();
+}
+async function agregarSubs(raw, id) {
+  for (const par of raw.split(';')) {
+    const [lang, ...r] = par.split('='), u = r.join('=').trim(), l = lang.trim();
+    if (!l || !u) continue;
+    try {
+      let txt = await (await fetch(u)).text();
+      if (id !== sesion) return;
+      if (!/^\s*WEBVTT/.test(txt)) txt = 'WEBVTT\n\n' + txt.replace(/\r/g, '').replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2');
+      const tr = document.createElement('track');
+      tr.kind = 'subtitles'; tr.label = idioma(l); tr.srclang = l;
+      tr.src = URL.createObjectURL(new Blob([txt], { type: 'text/vtt' }));
+      v.append(tr); tr.track.mode = 'disabled';
+    } catch (e) { /* subtítulo no disponible o sin CORS */ }
+  }
+  nativo();
+}
+function reproducir(url, titulo, subs) {
   parar(); err.style.display = 'none'; $('pt').textContent = titulo; dlg.showModal();
+  const id = sesion;
   if (/\.m3u8(\?|$)/i.test(url) && window.Hls && Hls.isSupported()) {
     hls = new Hls(); hls.loadSource(url); hls.attachMedia(v);
-    hls.on(Hls.Events.ERROR, (_, d) => d.fatal && fallo());
-  } else v.src = url;
+    hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => {
+      llenar(selA, hls.audioTracks.map((t, i) => [i, t.name || idioma(t.lang) || 'Audio ' + (i + 1)]), hls.audioTrack); mostrar();
+    });
+    hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => {
+      llenar(selS, [[-1, 'Desactivados'], ...hls.subtitleTracks.map((t, i) => [i, t.name || idioma(t.lang) || 'Subtítulo ' + (i + 1)])], hls.subtitleTrack); mostrar();
+    });
+    hls.on(Hls.Events.ERROR, (_, d) => { if (d.fatal) fallo(); });
+  } else {
+    v.src = url;
+    if (subs) agregarSubs(subs, id);
+  }
   v.play().catch(() => {});
 }
+selA.addEventListener('change', () => {
+  const i = +selA.value;
+  if (hls) hls.audioTrack = i; else [...v.audioTracks].forEach((t, k) => t.enabled = k === i);
+});
+selS.addEventListener('change', () => {
+  const i = +selS.value;
+  if (hls) hls.subtitleTrack = i; else subsNativos().forEach((t, k) => t.mode = k === i ? 'showing' : 'disabled');
+});
+v.addEventListener('loadedmetadata', nativo);
+v.textTracks.addEventListener('addtrack', nativo);
 v.addEventListener('error', fallo);
 $('cerrar').onclick = () => dlg.close();
 dlg.addEventListener('close', parar);
 dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
 
+// ---------- Inicio ----------
 $('q').addEventListener('input', e => { st.q = e.target.value; st.pag = 1; if (st.items.length) render(); });
-$('titulo').onclick = () => { st.grupo = ''; st.q = ''; st.pag = 1; $('q').value = ''; st.items.length && render(); };
-
+$('titulo').onclick = () => { st.grupo = ''; st.q = ''; st.pag = 1; $('q').value = ''; if (st.items.length) { mezclar(); render(); } };
 cargarUrl(CONFIG.playlist);
 </script>
 </body>
